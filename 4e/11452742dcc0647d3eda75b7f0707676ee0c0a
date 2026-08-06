@@ -1,0 +1,61 @@
+.claude/skills/kaggle-competition-playbook/references/code-competition-debugging.md
+  s_c5fcc6f0adfe1f::t_179a9e1aefc447 1-78
+.claude/skills/kaggle-competition-playbook/references/competition-intel.md
+  s_c5fcc6f0adfe1f::t_179a9e1aefc447 1-90
+.claude/skills/kaggle-competition-playbook/references/rl-game-case-study.md
+  s_c5fcc6f0adfe1f::t_179a9e1aefc447 1-94
+.claude/skills/run-battle/scripts/run_battle.py
+  s_9664e2daaabd54::t_a8de070714aa70 1-103
+.claude/skills/kaggle-competition-playbook/references/01-competition-patterns.md
+  s_c5fcc6f0adfe1f::t_179a9e1aefc447 1-215
+.claude/skills/kaggle-competition-playbook/references/information-sharing-policy.md
+  s_c5fcc6f0adfe1f::t_179a9e1aefc447 1-37
+.claude/skills/kaggle-competition-playbook/SKILL.md
+  s_c5fcc6f0adfe1f::t_90020fe1471387 1-23
+.claude/skills/kaggle-competition-playbook/references/submission-endgame.md
+  s_c5fcc6f0adfe1f::t_179a9e1aefc447 1-77
+.claude/hooks/block-credential-files.sh
+  s_9664e2daaabd54::t_644697b2f27434 1-9
+.claude/settings.json
+  s_9664e2daaabd54::t_703f265133c97e 1-24
+.claude/skills/run-battle/SKILL.md
+  s_9664e2daaabd54::t_2ed884d78247a2 1-60
+.claude/agents/secrets-scanner.md
+  s_9664e2daaabd54::t_02b841feb643f8 1-44
+.claude/hooks/block-data-commit.sh
+  s_9664e2daaabd54::t_2fee9e203672ef 1-15
+.claude/skills/kaggle-competition-playbook/references/03-automation-patterns.md
+  s_c5fcc6f0adfe1f::t_179a9e1aefc447 1-499
+.claude/skills/kaggle-competition-playbook/references/06-competition-types-submission-workflow.md
+  s_c5fcc6f0adfe1f::t_179a9e1aefc447 1-96
+.claude/agents/game-engine-analyst.md
+  s_9664e2daaabd54::t_dd36427fa58159 1-47
+.claude/skills/secrets-and-data-guard/SKILL.md
+  s_9664e2daaabd54::t_aef66c13fcb4cc 1-51
+.claude/skills/secrets-and-data-guard/scripts/scan.sh
+  s_9664e2daaabd54::t_a52e1bc6ce6cea 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4e11452742dcc0647d3eda75b7f0707676ee0c0a",
+  "prompts": {},
+  "sessions": {
+    "s_9664e2daaabd54": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7b139479-9485-4e75-a4fd-543428ea2b36",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    },
+    "s_c5fcc6f0adfe1f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1c5b75a6-38a3-49f5-bba7-eb6ede678a4b",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
