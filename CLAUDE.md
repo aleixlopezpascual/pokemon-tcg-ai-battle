@@ -21,6 +21,10 @@ findings — this file is about *how to work in this repo*, not what we've learn
 
 - **5 uploads/team/day.** ERRORed submissions (validation failure before any games run) do
   **not** count against this cap — confirmed empirically (see `10-day-plan.md` submission log).
+- **The day boundary is UTC midnight, not local date.** Confirmed 2026-08-07/08: a submission
+  made after local midnight still consumed "08-07"'s quota because UTC hadn't rolled over yet.
+  Check the CLI's actual "N submissions remaining" message, don't assume a fresh 5 just because
+  the local calendar date changed.
 - Only **2 Final Submissions** count for placement, and they must be **manually selected** on
   Kaggle — auto-select picks your latest two uploads, not your best two. Do this deliberately
   near the 08-16 deadline, not by accident.

@@ -103,6 +103,10 @@ competitive a given kernel's disclosed LB score actually is.
 
 **Quota for 2026-08-07 after this submission: 4/5 used, 1 remaining.** Holding the last slot in reserve.
 
+`55327510` settled at **774.8** on a later reading (drifted from 811.4 peak); `55330407` settled at **718.3** — the two hardening-pass fixes now both stable, real value of this specific implementation looks to be ~720-775.
+
+| `55335494` | 2026-08-07 23:12 UTC | Official Kiyota Dragapult ex sample (raw, no bench guard yet) — second archetype track. TomBombadyl's private testing showed this exact official sample + one bench guard hit 880.9 μ, above anything gotten from Archaludon so far. Testing the raw sample first before investing guard-engineering effort in an unfamiliar 850-line codebase. Local pooled WR 61% (`submissions/kiyota_dragapult_ex/`). | PENDING | Note: `kaggle`'s daily quota resets on UTC midnight, not local date — this was still "2026-08-07" quota-day despite local date already reading 08-08. **Quota now 5/5 used for 08-07-UTC, 0 remaining until rollover.** |
+
 **New durable lesson for `CLAUDE.md`**: any submission that imports beyond stdlib + `cg` is a real, demonstrated risk — the Kaggle simulation sandbox is very likely more minimal than the interactive notebook environment the discussion threads describe. Prefer pure-Python/stdlib implementations for anything shipped to the ladder; if a trained model is genuinely needed, export its decision logic to a dependency-free format rather than pickling the library object.
 
 ## 2026-08-07 — rule-based hardening pass (parallel worktree, while waiting on the IL reading)
