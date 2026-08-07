@@ -111,8 +111,9 @@ CLI's `topics` subcommand works and is authenticated/structured**:
 
 ## Local evaluation — what it can and can't tell you
 
-`python src/local_eval.py --candidate submissions/<name>` pools win rate across a fixed 4-agent
-roster (random baseline + our 3 real submissions) with Wilson 95% confidence intervals.
+`python src/local_eval.py --candidate submissions/<name>` pools win rate across a fixed 5-agent
+roster (random baseline + our 3 rule-based submissions + the imitation-learning agent
+`il_agent_v2b`) with Wilson 95% confidence intervals.
 **Calibrated against real ladder scores and found to correctly flag obviously-weak candidates,
 but it inverts fine-grained rankings between comparable-strength ones** (see
 `baseline-comparison.md`'s calibration table). Use it as a pre-submission sanity gate, not a

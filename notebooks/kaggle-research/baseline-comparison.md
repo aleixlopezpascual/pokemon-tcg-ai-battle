@@ -55,6 +55,10 @@ pairwise number.
 | Archaludon | 65.0% | 643.1 |
 | Lucario | 51.7% | 490.8 |
 
+*Footnote: this table was computed against the pre-`il_agent_v2b` 4-agent roster (random
+baseline + these 3 submissions only). The default roster is now 5 agents (`il_agent_v2b` added),
+so these exact numbers are not reproducible against current `src/local_eval.py` runs.*
+
 **Conclusion**: the harness correctly identifies Lucario as clearly weakest (both rankings
 agree) — good as a coarse filter for "is this candidate obviously bad." But it ranks Great Tusk
 above Archaludon locally while the real ladder ranks them the other way — **it cannot reliably
