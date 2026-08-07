@@ -1,0 +1,24 @@
+src/local_eval.py
+  s_5b1e41b3e069f3::t_4b77d56afd866a 107
+  s_5b1e41b3e069f3::t_27a1351233ca5e 121
+  s_5b1e41b3e069f3::t_bfbda8b8a9380b 74-75,79-82,89-96
+  s_5b1e41b3e069f3::t_4ed512eb674015 17
+  s_5b1e41b3e069f3::t_7edc4d0bb2aa5d 112
+  s_5b1e41b3e069f3::t_ca9d8a60cf6c9b 52-53,55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a307be3afbb2d031593cf3531148846387822e2d",
+  "prompts": {},
+  "sessions": {
+    "s_5b1e41b3e069f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "626d7bb9-942b-41c8-9ddc-87137c18be8b",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
