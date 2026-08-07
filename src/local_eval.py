@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 import importlib.util
+import json
 import math
 import sys
 from pathlib import Path
@@ -48,9 +49,10 @@ def wilson_interval(wins: int, n: int, z: float = 1.96) -> tuple[float, float]:
     return (max(0.0, center - margin), min(1.0, center + margin))
 
 
-def run_matchup(rb, candidate_dir: Path, opponent_dir: Path, battles: int, engine_dir: Path):
+def run_matchup(rb, candidate_dir: Path, opponent_dir: Path, battles: int, engine_dir: Path,
+                 save_losses_dir: Path | None = None):
     sys.path.insert(0, str(engine_dir))
-    from cg.game import battle_start, battle_select, battle_finish
+    from cg.game import battle_start, battle_select, battle_finish, visualize_data
 
     candidate_agent = rb.load_agent(candidate_dir / "main.py", "candidate_main")
     opponent_agent = rb.load_agent(opponent_dir / "main.py", "opponent_main")
@@ -69,15 +71,29 @@ def run_matchup(rb, candidate_dir: Path, opponent_dir: Path, battles: int, engin
             continue
 
         agents = [agent_a, agent_b]
+        obs_log = [""] if save_losses_dir else None
+        action_log = [None] if save_losses_dir else None
         while obs["current"]["result"] == -1:
             your_index = obs["current"]["yourIndex"]
             select_list = agents[your_index](obs)
+            if save_losses_dir:
+                obs.pop("search_begin_input", None)
+                obs_log.append(obs)
+                action_log.append(select_list)
             obs = battle_select(select_list)
 
         winner_slot = obs["current"]["result"]
         winner_is_candidate = (winner_slot == 0) == candidate_first
         if winner_is_candidate:
             wins += 1
+        elif save_losses_dir:
+            vis = json.loads(visualize_data())
+            for step in range(len(vis)):
+                vis[step]["obs"] = obs_log[step]
+                vis[step]["action"] = [action_log[step], action_log[step]]
+            save_losses_dir.mkdir(parents=True, exist_ok=True)
+            out_path = save_losses_dir / f"{opponent_dir.name}_battle{i}.json"
+            out_path.write_text(json.dumps(vis))
         battle_finish()
 
     return wins, errors, battles - errors
@@ -88,10 +104,12 @@ def main():
     parser.add_argument("--candidate", required=True)
     parser.add_argument("--opponents", nargs="*", help="Override the default opponent roster (directories)")
     parser.add_argument("--battles", type=int, default=30, help="Battles per matchup (default 30)")
+    parser.add_argument("--save-losses", help="Directory to dump lost-battle replays as JSON (drag into the community visualizer.html)")
     args = parser.parse_args()
 
     rb = _load_run_battle_module()
     candidate_dir = Path(args.candidate).resolve()
+    save_losses_dir = Path(args.save_losses).resolve() if args.save_losses else None
     opponents = [Path(p).resolve() for p in args.opponents] if args.opponents else DEFAULT_OPPONENTS
     opponents = [o for o in opponents if o.resolve() != candidate_dir]
 
@@ -100,7 +118,7 @@ def main():
     total_wins, total_games = 0, 0
     rows = []
     for opponent_dir in opponents:
-        wins, errors, games = run_matchup(rb, candidate_dir, opponent_dir, args.battles, engine_dir)
+        wins, errors, games = run_matchup(rb, candidate_dir, opponent_dir, args.battles, engine_dir, save_losses_dir)
         lo, hi = wilson_interval(wins, games) if games else (0.0, 0.0)
         rows.append((opponent_dir.name, wins, games, errors, lo, hi))
         total_wins += wins
