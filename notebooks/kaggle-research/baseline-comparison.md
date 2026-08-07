@@ -111,6 +111,13 @@ is gitignored by design, third-party-derived agent code).
 unconfirmed by the host as of the discussion pull, nothing to code defensively against from our
 side.
 
+**Real-world validation (2026-08-07, ref `55327510`):** submitted the hardened version — scored
+**771.6**, up from the unhardened 643.1. A **+128.5** jump from one small robustness fix is a
+strong signal that `maxCount > len(options)` was genuinely occurring in real games and silently
+losing them via the previously-unguarded exception fallback. This is the clearest evidence all
+session that a targeted code fix, not archetype or deck choice, can move the real score
+substantially — worth remembering before assuming further gains require a bigger rebuild.
+
 ## Facts worth carrying forward as-is (official game rules, not proprietary code)
 
 From `pulled/TomBombadyl__kaggle_pokemon/RULINGS.md` Part 4 (their own citations of the
