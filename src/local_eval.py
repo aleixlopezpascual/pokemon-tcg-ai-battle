@@ -49,6 +49,18 @@ def wilson_interval(wins: int, n: int, z: float = 1.96) -> tuple[float, float]:
     return (max(0.0, center - margin), min(1.0, center + margin))
 
 
+def check_stability(repeat_results: list[tuple[int, int]]) -> bool:
+    if len(repeat_results) < 2:
+        return True
+    rates = [wins / games if games else 0.0 for wins, games in repeat_results]
+    cis = [wilson_interval(wins, games) if games else (0.0, 0.0) for wins, games in repeat_results]
+    for i, rate in enumerate(rates):
+        for j, (lo, hi) in enumerate(cis):
+            if i != j and not (lo <= rate <= hi):
+                return False
+    return True
+
+
 def run_matchup(rb, candidate_dir: Path, opponent_dir: Path, battles: int, engine_dir: Path,
                  save_losses_dir: Path | None = None):
     sys.path.insert(0, str(engine_dir))
@@ -105,6 +117,7 @@ def main():
     parser.add_argument("--opponents", nargs="*", help="Override the default opponent roster (directories)")
     parser.add_argument("--battles", type=int, default=30, help="Battles per matchup (default 30)")
     parser.add_argument("--save-losses", help="Directory to dump lost-battle replays as JSON (drag into the community visualizer.html)")
+    parser.add_argument("--repeats", type=int, default=1, help="Independent repeats per matchup, to check ranking stability (default 1)")
     args = parser.parse_args()
 
     rb = _load_run_battle_module()
@@ -118,16 +131,35 @@ def main():
     total_wins, total_games = 0, 0
     rows = []
     for opponent_dir in opponents:
-        wins, errors, games = run_matchup(rb, candidate_dir, opponent_dir, args.battles, engine_dir, save_losses_dir)
-        lo, hi = wilson_interval(wins, games) if games else (0.0, 0.0)
-        rows.append((opponent_dir.name, wins, games, errors, lo, hi))
-        total_wins += wins
-        total_games += games
+        repeat_results = []
+        pooled_errors = 0
+        for _ in range(args.repeats):
+            wins, errors, games = run_matchup(rb, candidate_dir, opponent_dir, args.battles, engine_dir, save_losses_dir)
+            repeat_results.append((wins, games))
+            pooled_errors += errors
+        pooled_wins = sum(w for w, g in repeat_results)
+        pooled_games = sum(g for w, g in repeat_results)
+        stable = check_stability(repeat_results)
+        lo, hi = wilson_interval(pooled_wins, pooled_games) if pooled_games else (0.0, 0.0)
+        rows.append((opponent_dir.name, pooled_wins, pooled_games, pooled_errors, lo, hi, stable, repeat_results))
+        total_wins += pooled_wins
+        total_games += pooled_games
 
-    print(f"{'opponent':<40} {'wins':>6} {'games':>6} {'errors':>7} {'win%':>7} {'95% CI':>16}")
-    for name, wins, games, errors, lo, hi in rows:
+    if args.repeats > 1:
+        print(f"{'opponent':<40} {'wins':>6} {'games':>6} {'errors':>7} {'win%':>7} {'95% CI':>16} {'stable':>10}")
+    else:
+        print(f"{'opponent':<40} {'wins':>6} {'games':>6} {'errors':>7} {'win%':>7} {'95% CI':>16}")
+    for name, wins, games, errors, lo, hi, stable, repeat_results in rows:
         pct = wins / games * 100 if games else 0.0
-        print(f"{name:<40} {wins:>6} {games:>6} {errors:>7} {pct:>6.1f}% [{lo*100:>5.1f}, {hi*100:>5.1f}]")
+        line = f"{name:<40} {wins:>6} {games:>6} {errors:>7} {pct:>6.1f}% [{lo*100:>5.1f}, {hi*100:>5.1f}]"
+        if args.repeats > 1:
+            line += f" {'OK' if stable else 'UNSTABLE':>10}"
+        print(line)
+        if args.repeats > 1:
+            per_repeat = ", ".join(
+                f"{w}/{g} ({w / g * 100:.1f}%)" if g else "0/0" for w, g in repeat_results
+            )
+            print(f"{'':<40} repeats: {per_repeat}")
 
     print()
     if total_games:
