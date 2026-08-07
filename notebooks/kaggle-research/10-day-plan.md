@@ -89,8 +89,10 @@ competitive a given kernel's disclosed LB score actually is.
 
 ## Known constraints to keep in mind throughout
 
-- **Discussion mining is manual, permanently.** No API or plain-fetch path exists for
-  Kaggle's per-competition forum threads — don't burn time trying to script it.
+- **Discussion mining is scriptable via the Kaggle CLI** (`kaggle competitions topics
+  list/show <slug> --format json`, paginated) — not manual/permanent as first thought. See
+  `discussion-intel-report.md` for the full pull (204 topics indexed, 58 deep-read) and the
+  updated `kaggle-competition-playbook` skill's `competition-intel.md` for the exact commands.
 - **Local win rate ≠ ladder score.** The `cg` engine's local opponent pool is fixed and small;
   a kernel (or your own candidate) that crushes it locally may not generalize. Treat local
   `run-battle` results as a fast filter, not a final verdict — the real signal is the hidden
