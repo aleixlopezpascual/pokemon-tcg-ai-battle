@@ -2,7 +2,9 @@
 
 Consolidated per the `kaggle-competition-playbook` skill's intel-gathering format, covering the
 **Discussion tab** (the Code/notebook tab is covered separately by the main checkout's
-`notebooks/kaggle-research/top-scores-report.md`).
+`notebooks/kaggle-research/top-scores-report.md`). For pre-submission evaluation methodology
+specifically (how competitors judge agent quality locally given LB noise), see the narrower
+companion report `evaluation-methodology.md`.
 
 ## Sourcing method
 
