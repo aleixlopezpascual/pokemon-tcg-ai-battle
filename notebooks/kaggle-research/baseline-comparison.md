@@ -73,6 +73,44 @@ available here.
 4. Run `myso1987/ptcg-ai-battle-leaderboard-deck-meta-by-score-band` (a live leaderboard-deck-archetype scraper, multi-hour for full mode) when there's room in the schedule — it would give a real, current "what's winning at the top score bands" answer instead of inferring from kernel titles.
 5. Only reach for search/MCTS/RL *after* the rule-based baseline's ceiling is clear — per TomBombadyl's Ruling R3/R4, pilot-quality dominates deck choice, and no trained approach in any evidence gathered (theirs or the wider kernel pool) has beaten a well-guarded rule-based one yet.
 
+## Rule-based hardening pass (2026-08-07, done in a parallel worktree while waiting on the IL reading)
+
+Resolves recommendation #2 above. Went through every correctness-relevant item flagged in
+`discussion-intel-report.md` against `submissions/masamikobayashi_archaludon_cinderace/main.py`
+directly — verifying against the real engine rather than assuming a gap exists just because it
+was the most-repeated advice in the wider research (that advice came largely from TomBombadyl's
+own, differently-tuned agent).
+
+**Checked and confirmed already safe — no fix needed:**
+- `#730707` (broad `except` returning the deck list mid-game): not present. The exception path
+  only ever falls back to a random legal sample, never the deck-submission response.
+- Per-option scoring already isolates failures — a single option's scoring exception degrades
+  that option to a very low score rather than crashing the whole decision.
+- Bench-empty handling is proactive, not reactive: playing any available basic Pokémon is
+  unconditionally high-priority (18000) regardless of current bench state. Ultra Ball's lower
+  priority specifically when the bench is empty is deliberate author tuning (search doesn't fix
+  emptiness *this turn* the way playing a card already in hand does), not an oversight.
+- Mandatory promote after a KO (`TO_ACTIVE`/`SWITCH`): every option scores ≥1000 in that
+  context, so the agent structurally never declines when forced to choose a new active.
+- `#716241` (Rare Candy consumed without evolving after Evolution Jammer): this deck has zero
+  Rare Candy — doesn't apply.
+- `#708586`'s report that Setup sometimes forces benching a spare Basic with no decline option:
+  **tested empirically against the real `cg` engine across 15 games** — `SETUP_BENCH_POKEMON`'s
+  `minCount` was 0 every single time observed. Doesn't reproduce here; declining is always legal
+  in what we could observe.
+
+**One real, confirmed gap found and fixed:** the top-level exception fallback did
+`random.sample(options, obs.select.maxCount)` unclipped — if `maxCount` ever exceeded the actual
+number of legal options, that call would itself raise, uncaught, since it's already inside the
+last-resort `except` block. Fixed to clip to `[minCount, min(maxCount, n_options)]`. Verified
+10/10 still passes locally after the change; the fix is live in
+`submissions/masamikobayashi_archaludon_cinderace/main.py` (not committed to git — `submissions/`
+is gitignored by design, third-party-derived agent code).
+
+**Not actionable**: `#733265` (simulator allegedly swapping decks between players) — engine-side,
+unconfirmed by the host as of the discussion pull, nothing to code defensively against from our
+side.
+
 ## Facts worth carrying forward as-is (official game rules, not proprietary code)
 
 From `pulled/TomBombadyl__kaggle_pokemon/RULINGS.md` Part 4 (their own citations of the

@@ -98,6 +98,17 @@ competitive a given kernel's disclosed LB score actually is.
 
 **New durable lesson for `CLAUDE.md`**: any submission that imports beyond stdlib + `cg` is a real, demonstrated risk — the Kaggle simulation sandbox is very likely more minimal than the interactive notebook environment the discussion threads describe. Prefer pure-Python/stdlib implementations for anything shipped to the ladder; if a trained model is genuinely needed, export its decision logic to a dependency-free format rather than pickling the library object.
 
+## 2026-08-07 — rule-based hardening pass (parallel worktree, while waiting on the IL reading)
+
+Done ahead of the original Day-8 slot since there was idle time waiting on `55325282`'s
+stabilization. Full findings in `baseline-comparison.md`'s "Rule-based hardening pass" section —
+summary: went through every correctness item flagged in `discussion-intel-report.md` against
+Archaludon's real code and the real engine (not assumption). Most repeatedly-flagged advice
+("add a bench guard") turned out to already be handled, proactively and more thoroughly than
+expected. One real gap found and fixed: an unclipped `random.sample` in the last-resort
+exception fallback that could itself crash if `maxCount` ever exceeded the option count. Live in
+`submissions/masamikobayashi_archaludon_cinderace/main.py`.
+
 **4 of 5 daily uploads remain for 2026-08-06.** Only 2 Final Submissions count for placement and must be *manually* selected later — don't forget this near the deadline.
 
 ## Known constraints to keep in mind throughout
