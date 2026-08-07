@@ -24,4 +24,7 @@ notebooks/kaggle-research/pulled/
 # Claude Code worktree sessions
 .claude/worktrees/
 
+# superpowers:subagent-driven-development scratch workspace (briefs/reports/ledgers per plan)
+.superpowers/
+
 .DS_Store

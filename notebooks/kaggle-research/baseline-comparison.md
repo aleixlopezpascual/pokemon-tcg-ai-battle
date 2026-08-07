@@ -118,6 +118,107 @@ losing them via the previously-unguarded exception fallback. This is the cleares
 session that a targeted code fix, not archetype or deck choice, can move the real score
 substantially — worth remembering before assuming further gains require a bigger rebuild.
 
+## Matchup-logic audit (2026-08-07, second pass)
+
+Follow-up to the hardening pass above, this time targeting the matchup-specific branches
+(Crustle/Alakazam/Hop) rather than the general-purpose checklist items — these are the densest,
+least-tested code in `submissions/masamikobayashi_archaludon_cinderace/main.py` (per-opponent
+override blocks with layered conditions, easy to get subtly wrong), audited with the same
+real-engine-verification rigor: every claim checked against the real `cg` engine's card DB
+and dataclass source, not assumed from variable names or comments.
+
+**Confirmed and fixed:** the `detect_matchup`/`all_my_pokemon` `None`-active crash. Per the
+engine's own `PlayerState.active` field comment (`list[Pokemon | None]  # ... None if the card is
+facedown`), an opponent's (or, more defensively, our own) active Pokémon can legitimately be
+`None` when face-down. `detect_matchup` computed `opp.active + opp.bench` without guarding this
+case, while sibling functions elsewhere in the file already did — an inconsistency that turned a
+documented, reachable engine state into an uncaught `TypeError: unsupported operand type(s) for
++: 'NoneType' and 'list'`. Because this crash sits inside the per-option scoring path, and that
+path's own exception isolation degrades a *single* option's score to a very low fallback rather
+than crashing the whole decision, a face-down active silently forced every option in that
+decision down to the -999999 floor — turning a normally-reasoned choice into an effectively random
+one for that turn. Fixed by guarding both functions with `(x or [])` before concatenation;
+reproduced the crash synthetically first, confirmed the fix eliminates it, then re-ran a 10-battle
+regression (10/10 wins, no errors) to confirm no behavior change on the non-crashing path.
+
+**Checked and confirmed already safe** (no fix needed):
+- **Crustle override branch ordering.** Verified against real card data pulled from the engine's
+  own `all_card_data()` (Duraludon's actual attack list `[Hammer In, Raging Hammer]` — it does not
+  know Metal Defender; Archaludon ex's attack list `[Metal Defender]`; Crustle's "Mysterious Rock
+  Inn" ability, which blocks all damage from the opponent's `ex` Pokémon specifically; Spiky
+  Energy's fixed 20-HP recoil to whoever damages its holder). The one apparent case of an earlier,
+  broader condition ("full HP Duraludon waits out Spiky") shadowing a later, more specific one
+  ("Crustle: Raging Hammer") is real and reproduces, but is not a bug: because Metal Defender is
+  never reachable while Duraludon is active, the broad condition can, by construction, only ever
+  intercept Raging Hammer — a deliberate, game-rule-consistent precedence (don't spend your only
+  clean attacker's HP for one turn of chip damage while at full HP), not an accidental catch-all.
+- **The Alakazam `enriching_seen` card-ID check.** Card 13, checked directly against the engine's
+  card DB, is confirmed to be Enriching Energy (ACE SPEC, "draw 4 cards" on attach) — exactly the
+  one-time hand-size burst the variable name describes. The heuristic's `None`/empty-bench
+  handling was also traced end-to-end: `bench` is never `None`-padded per the engine's own type
+  contract (`list[Pokemon]`, no facedown case, unlike `active`), and the one possible `None`
+  (a face-down active) is filtered out by an `if p` guard before any attribute access. ID and
+  guard logic both check out.
+- **The Hop/Snorlax `active.hp > 220` threshold.** Confirmed `hp` is current, damage-reduced HP —
+  not max HP — per the engine's own dataclass comment ("Current HP.") and corroborated by this
+  file's own `damage_on` helper (`maxHp - hp`, used additively everywhere it appears, never as a
+  "derive current HP" step, which would be redundant if `.hp` were already current). Five other
+  bare `.hp > threshold` comparisons elsewhere in the file use the identical idiom, so this branch
+  is consistent with the file's own established (and correct) convention, not an outlier.
+
+**Deferred, out of this audit's scope:** the `rh_dmg` dead-variable observation from the Crustle
+audit — in the Raging Hammer branch, `rh_dmg = 80 + damage_on(active_pokemon(obs)) // 10 * 10` is
+computed but never used; the actual return is `max(score, 200)`, a hardcoded floor, not
+`max(score, rh_dmg)`. Plausibly the intent was to scale the floor with accumulated damage (mirroring
+`best_attack_damage`'s identical formula), but this doesn't change branch precedence/shadowing —
+the thing this audit was scoped to check — so it was left untouched. Worth a follow-up look, not a
+fix bundled into this round.
+
+**Local validation (2026-08-07, post-fix, pre-submission):**
+
+```
+$ python3 .claude/skills/run-battle/scripts/run_battle.py --candidate submissions/masamikobayashi_archaludon_cinderace --battles 20
+battle 0: first=candidate winner=candidate
+battle 1: first=opponent winner=candidate
+battle 2: first=candidate winner=candidate
+battle 3: first=opponent winner=candidate
+battle 4: first=candidate winner=candidate
+battle 5: first=opponent winner=candidate
+battle 6: first=candidate winner=candidate
+battle 7: first=opponent winner=candidate
+battle 8: first=candidate winner=candidate
+battle 9: first=opponent winner=candidate
+battle 10: first=candidate winner=candidate
+battle 11: first=opponent winner=candidate
+battle 12: first=candidate winner=opponent
+battle 13: first=opponent winner=candidate
+battle 14: first=candidate winner=candidate
+battle 15: first=opponent winner=candidate
+battle 16: first=candidate winner=candidate
+battle 17: first=opponent winner=candidate
+battle 18: first=candidate winner=candidate
+battle 19: first=opponent winner=candidate
+
+candidate wins: 19/20 (95.0%)
+opponent  wins: 1/20 (5.0%)
+```
+
+```
+$ python3 src/local_eval.py --candidate submissions/masamikobayashi_archaludon_cinderace --battles 20
+opponent                                   wins  games  errors    win%           95% CI
+sample_submission                            19     20       0   95.0% [ 76.4,  99.1]
+kiyota_mega_lucario_ex                       15     20       0   75.0% [ 53.1,  88.8]
+soutasakurai_libraryout_crustle               6     20       0   30.0% [ 14.5,  51.9]
+
+pooled: 40/60 (66.7%) 95% CI [54.1, 77.3]
+```
+
+Zero errors across both harnesses (80 games total) — consistent with the fix being a clean,
+non-disruptive guard rather than a behavior change on any previously-working path. Per this
+doc's own earlier calibration note, pooled local win rate is a coarse "not obviously broken"
+filter, not a ladder-μ predictor — this run's job was to confirm the fix didn't regress anything
+locally, not to forecast the real score.
+
 ## Facts worth carrying forward as-is (official game rules, not proprietary code)
 
 From `pulled/TomBombadyl__kaggle_pokemon/RULINGS.md` Part 4 (their own citations of the

@@ -97,6 +97,12 @@ competitive a given kernel's disclosed LB score actually is.
 
 **Quota for 2026-08-07: 3/5 used (1 ERROR did not count against it), 2 remaining.** Hardened Archaludon (`55327510`, 771.6) is the new best real score and leading Final Submission candidate. IL track (523-532) now clearly behind — hold off on further IL submissions until its 24h window closes and a final call is made per Gate C.
 
+`55327510`'s 2nd reading: **811.4** — stable, confirms the 771.6→811.4 range is real, not a lucky first read.
+
+| `55330407` | 2026-08-07 17:34 UTC | Archaludon, 2nd hardening pass (matchup-logic audit via `superpowers:subagent-driven-development`, plan at `docs/superpowers/plans/2026-08-07-archaludon-matchup-audit.md`) — confirmed+fixed a real `TypeError` crash in `detect_matchup` when the opponent's active is face-down (`None`, a documented reachable engine state); Crustle/Alakazam/Hop branches all independently audited and confirmed already correct against real engine data, no other changes | PENDING | Very rare in real data (0/29,064 sampled) so expected uplift is likely small vs the `random.sample` fix's — real test either way. |
+
+**Quota for 2026-08-07 after this submission: 4/5 used, 1 remaining.** Holding the last slot in reserve.
+
 **New durable lesson for `CLAUDE.md`**: any submission that imports beyond stdlib + `cg` is a real, demonstrated risk — the Kaggle simulation sandbox is very likely more minimal than the interactive notebook environment the discussion threads describe. Prefer pure-Python/stdlib implementations for anything shipped to the ladder; if a trained model is genuinely needed, export its decision logic to a dependency-free format rather than pickling the library object.
 
 ## 2026-08-07 — rule-based hardening pass (parallel worktree, while waiting on the IL reading)
