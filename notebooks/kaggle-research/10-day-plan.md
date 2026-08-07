@@ -85,6 +85,19 @@ competitive a given kernel's disclosed LB score actually is.
 
 **Independent large-sample confirmation of Archaludon as the right archetype**: `biohack44`'s meta-snapshot notebook's embedded field data (real, not self-reported) shows Archaludon at **62.2% score rate over 1725 games** (Wilson CI 59.9-64.5%), the highest of any high-volume archetype (alakazam_dunsparce 51.3%, starmie 51.9%, dragapult 49.1%, hop_trevenant 45.5%, lucario 42.4%). This is now a 5th independent source pointing at Archaludon — the gap to close is implementation quality, not archetype choice.
 
+**Correction (2026-08-07):** `55308975` = **694.4** (stable), `55309000` = **682.0** (drifted down from initial ~688-694) — these two refs were recorded swapped above; corrected here as the source of truth.
+
+## 2026-08-07 — imitation-learning pivot (see `.claude/plans/option-1-detailed-cryptic-brook.md` for the full IL rebuild plan)
+
+| Ref | Date | Description | Status | μ |
+|---|---|---|---|---|
+| `55324974` | 2026-08-07 12:47 UTC | `il_agent_v2` — imitation-learning scorer, 764k training decisions (299 episodes + 4,483 ELO-filtered from 2026-08-05), Grimmsnarl/Froslass deck mined from real data. Local pooled WR 47.5%, still 0-10% specifically vs our own Archaludon baseline across all IL variants tried. | **ERROR** | Ran perfectly locally (loose files, extracted tar, `run_battle`, `local_eval`) — root-caused to the Kaggle simulation sandbox almost certainly lacking numpy/pandas/scikit-learn/joblib (every prior submission here only ever needed stdlib + the compiled `cg` engine; this was the first to pull in the data-science stack). Fixed: exported the trained model's decision-tree structure to pure JSON + a stdlib-only (`json`+`math`) predictor (`src/pure_predictor.py`), validated bit-for-bit identical to sklearn's own `predict_proba` before shipping, and confirmed the new `main.py` imports and runs a full battle with site-packages stripped from `sys.path` entirely. Resubmitted as `55325282`. |
+| `55325282` | 2026-08-07 13:03 UTC | `il_agent_v2` retry, zero external dependencies (see above) | COMPLETE | **523.1** (1st reading) — below Archaludon (643.1) and Great Tusk (553.8), only clearly ahead of raw Lucario (490.8). Sobering after the local-improvement work, but it's one early reading; need a 2nd ≥24h apart before concluding anything per discussion-intel's stabilization finding. |
+
+**Quota for 2026-08-07: 2/5 used (1 ERROR did not count against it — confirmed again), 3 remaining.** Archaludon (`55308121`, 643.1 real) remains the best real score and the safe fallback / guaranteed Final Submission. IL track's real standing is genuinely uncertain until the 2nd reading — don't spend more submissions on this exact model until then.
+
+**New durable lesson for `CLAUDE.md`**: any submission that imports beyond stdlib + `cg` is a real, demonstrated risk — the Kaggle simulation sandbox is very likely more minimal than the interactive notebook environment the discussion threads describe. Prefer pure-Python/stdlib implementations for anything shipped to the ladder; if a trained model is genuinely needed, export its decision logic to a dependency-free format rather than pickling the library object.
+
 **4 of 5 daily uploads remain for 2026-08-06.** Only 2 Final Submissions count for placement and must be *manually* selected later — don't forget this near the deadline.
 
 ## Known constraints to keep in mind throughout
