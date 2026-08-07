@@ -73,6 +73,23 @@ Do not publish participant names, handles, or private links in generic reports u
 If the MCP tool is not available:
 
 - Use the separate `$kaggle-competition-intel` skill if installed.
+- **For discussion intel specifically, prefer the Kaggle CLI's `topics` subcommand over
+  screenshots or WebFetch** — it is authenticated, structured, and doesn't need a browser:
+  - `kaggle competitions topics list <slug> --format json` — paginated 20/page via
+    `--page-token`; the token is printed as trailing text (`Next Page Token = N`) *after* the
+    JSON array, so strip it before parsing. Loop until a page comes back empty to get the full
+    topic index (id, title, authorName, commentCount, votes, postDate).
+  - `kaggle competitions topics show <id> --format json` — full comment tree for one topic
+    (author, votes, date, HTML `content` body per comment). Note: this does **not** return the
+    original post body, only the comment thread — for zero/low-comment topics there's little to
+    summarize beyond the title.
+  - The API rate-limits (`429 Too Many Requests`) on a bulk pull of `topics show` across many
+    topics — retry with backoff, don't treat one 429 as "unavailable."
+  - This beats WebFetch/browsing: Kaggle's Discussion and Code tabs are JS-rendered SPAs, so a
+    plain WebFetch returns no thread content (confirmed empty in practice) — screenshots were
+    previously the only fallback for this reason, but the CLI avoids that entirely for
+    discussions (Code-tab vote/score badges still aren't exposed by the CLI, so notebook
+    scouting may still need a screenshot).
 - Use Kaggle UI/API/notebook search manually when browsing or Kaggle CLI is available.
 - Use existing local competition notes, public writeups, or user-provided links.
 - Proceed with the baseline workflow and note that live solution/discussion intelligence was unavailable.

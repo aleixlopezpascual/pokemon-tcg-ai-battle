@@ -18,4 +18,10 @@ models/*
 submissions/*
 !submissions/.gitkeep
 
+# Third-party kernels pulled for research (not ours to commit)
+notebooks/kaggle-research/pulled/
+
+# Claude Code worktree sessions
+.claude/worktrees/
+
 .DS_Store
