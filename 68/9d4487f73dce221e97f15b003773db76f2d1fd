@@ -1,0 +1,44 @@
+.gitignore
+  s_e715a7b414e9ad::t_da8b528b914c37 21-23
+  s_e715a7b414e9ad::t_a1401ff841d060 24-26
+notebooks/kaggle-research/prioritization-matrix.md
+  s_e715a7b414e9ad::t_1b0f0b5da5d1ac 1-40
+src/fetch_kaggle_kernels.py
+  s_e715a7b414e9ad::t_c0b7b6d9c0122e 1-77
+notebooks/kaggle-research/top-scores-report.md
+  s_e715a7b414e9ad::t_0ee97f3f40136e 1-135
+src/local_eval.py
+  s_e715a7b414e9ad::t_372cbd1b7baac9 1-121
+notebooks/kaggle-research/baseline-comparison.md
+  s_e715a7b414e9ad::t_65fc84fefc0c62 42-67
+  s_e715a7b414e9ad::t_98c67eb656a4e4 1-32,75-92
+  s_e715a7b414e9ad::t_1981f6558224e3 33-41,68-74
+notebooks/kaggle-research/10-day-plan.md
+  s_e715a7b414e9ad::t_55535a386a4b67 1-11,26-72,90-97
+  s_e715a7b414e9ad::t_2e2fabb6ca9040 12-25
+  s_e715a7b414e9ad::t_1ca7b98375028b 77
+  s_e715a7b414e9ad::t_6f8d5bf0f19377 78-79
+  s_e715a7b414e9ad::t_2a6b0a8d1a8c12 73-76,87-89
+  s_e715a7b414e9ad::t_571d305c927139 80-86
+notebooks/kaggle-research/notebook-audit-template.md
+  s_e715a7b414e9ad::t_37a2ac710a395c 74-100
+  s_e715a7b414e9ad::t_917c766919e710 26-73
+  s_e715a7b414e9ad::t_b3dc240f70a0be 1-25,109-121
+  s_e715a7b414e9ad::t_43f038a567aa4c 101-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "689d4487f73dce221e97f15b003773db76f2d1fd",
+  "prompts": {},
+  "sessions": {
+    "s_e715a7b414e9ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff7b0969-daa4-46f3-9eb9-9c3a883d1048",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
