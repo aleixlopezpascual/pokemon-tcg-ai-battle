@@ -34,6 +34,7 @@ self-built local evaluation is the norm here, not a workaround for something bet
    *stability* — snapshotting the leaderboard every 100 matches and measuring how much each
    agent's rank moved. Relevant if we ever want to tune how many games-per-matchup
    `src/local_eval.py` should run to get a stable win-rate read, not just a point estimate.
+   (`src/local_eval.py --repeats` now does a lightweight version of this stability check.)
 
 2. **Held-out validation split in the *opponent pool*, not just training data.** Jake (#717697,
    2026-07-04): "We currently run 6 learned agents and 3 public rule based agents in local
@@ -44,9 +45,11 @@ self-built local evaluation is the norm here, not a workaround for something bet
 3. **Deck-diversity scaling in the local opponent pool, after diagnosing narrow-pool
    overfitting.** Jake (#717697, 2026-07-05): grew the local pool from 3 to 9 deck types after
    noticing local win-rate no longer predicted Kaggle performance — directly attributed the
-   earlier divergence to too narrow a local matchup set. Our own `local_eval.py` roster is 4
-   agents (random baseline + 3 of our own submissions) — worth weighing against this reported
-   failure mode if local/Kaggle divergence shows up again.
+   earlier divergence to too narrow a local matchup set. Our own `local_eval.py` roster was
+   widened from 4 to 5 agents (random baseline + 3 rule-based submissions + `il_agent_v2b`) —
+   an improvement, but still well short of Jake's 9-deck / 6-learned-agent pool, so narrow-pool
+   overfitting is worth weighing against this reported failure mode if local/Kaggle divergence
+   shows up again.
 
 4. **Deck-vs-deck matchup matrices via mass self-play** — but with a documented confound.
    ISAKA Tsuyoshi (#708617, 35 votes): shared ~15,000 self-play games across the 4 sample decks
@@ -92,9 +95,10 @@ fine-grained rankings between comparable-strength ones.
 
 ## Implication for our own workflow
 
-`src/local_eval.py`'s 4-agent roster (random baseline + our 3 real submissions) is on the
-narrower end of what the community reports as sufficient — Jake's 3→9 deck expansion and the
-6-learned-agents-plus-3-rule-based pool in #717697 both sit meaningfully larger. If a future
+`src/local_eval.py`'s roster (widened from 4 to 5 agents: random baseline + 3 rule-based
+submissions + `il_agent_v2b`) is still on the narrower end of what the community reports as
+sufficient — Jake's 3→9 deck expansion and the 6-learned-agents-plus-3-rule-based pool in
+#717697 both sit meaningfully larger. If a future
 candidate shows a strong local score that doesn't survive a real submission, narrow-pool
 overfitting (finding 3 above) is a documented, independently-reported failure mode to check
 first, not just bad luck. Similarly, djschmit's bo1-vs-bo-N stability experiment (finding 1)

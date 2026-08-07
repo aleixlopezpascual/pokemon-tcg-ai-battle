@@ -10,6 +10,8 @@ filter than any single matchup, though still not a substitute for a real ladder 
 Usage:
     python src/local_eval.py --candidate submissions/masamikobayashi_archaludon_cinderace
     python src/local_eval.py --candidate submissions/soutasakurai_libraryout_crustle --battles 30
+    python src/local_eval.py --candidate submissions/il_agent_v2b --save-losses /tmp/losses
+    python src/local_eval.py --candidate submissions/il_agent_v2b --repeats 3 --battles 10
 """
 
 import argparse
@@ -52,17 +54,16 @@ def wilson_interval(wins: int, n: int, z: float = 1.96) -> tuple[float, float]:
 def check_stability(repeat_results: list[tuple[int, int]]) -> bool:
     if len(repeat_results) < 2:
         return True
-    rates = [wins / games if games else 0.0 for wins, games in repeat_results]
     cis = [wilson_interval(wins, games) if games else (0.0, 0.0) for wins, games in repeat_results]
-    for i, rate in enumerate(rates):
-        for j, (lo, hi) in enumerate(cis):
-            if i != j and not (lo <= rate <= hi):
+    for i, (lo_i, hi_i) in enumerate(cis):
+        for j, (lo_j, hi_j) in enumerate(cis):
+            if i < j and (hi_i < lo_j or hi_j < lo_i):
                 return False
     return True
 
 
 def run_matchup(rb, candidate_dir: Path, opponent_dir: Path, battles: int, engine_dir: Path,
-                 save_losses_dir: Path | None = None):
+                 save_losses_dir: Path | None = None, repeat_index: int = 0):
     sys.path.insert(0, str(engine_dir))
     from cg.game import battle_start, battle_select, battle_finish, visualize_data
 
@@ -104,7 +105,7 @@ def run_matchup(rb, candidate_dir: Path, opponent_dir: Path, battles: int, engin
                 vis[step]["obs"] = obs_log[step]
                 vis[step]["action"] = [action_log[step], action_log[step]]
             save_losses_dir.mkdir(parents=True, exist_ok=True)
-            out_path = save_losses_dir / f"{opponent_dir.name}_battle{i}.json"
+            out_path = save_losses_dir / f"{opponent_dir.name}_r{repeat_index}_battle{i}.json"
             out_path.write_text(json.dumps(vis))
         battle_finish()
 
@@ -120,9 +121,15 @@ def main():
     parser.add_argument("--repeats", type=int, default=1, help="Independent repeats per matchup, to check ranking stability (default 1)")
     args = parser.parse_args()
 
+    if args.repeats < 1:
+        parser.error("--repeats must be >= 1")
+
+    save_losses_dir = Path(args.save_losses).resolve() if args.save_losses else None
+    if save_losses_dir is not None and save_losses_dir.exists() and not save_losses_dir.is_dir():
+        parser.error(f"--save-losses path exists and is not a directory: {save_losses_dir}")
+
     rb = _load_run_battle_module()
     candidate_dir = Path(args.candidate).resolve()
-    save_losses_dir = Path(args.save_losses).resolve() if args.save_losses else None
     opponents = [Path(p).resolve() for p in args.opponents] if args.opponents else DEFAULT_OPPONENTS
     opponents = [o for o in opponents if o.resolve() != candidate_dir]
 
@@ -133,8 +140,10 @@ def main():
     for opponent_dir in opponents:
         repeat_results = []
         pooled_errors = 0
-        for _ in range(args.repeats):
-            wins, errors, games = run_matchup(rb, candidate_dir, opponent_dir, args.battles, engine_dir, save_losses_dir)
+        for repeat_index in range(args.repeats):
+            wins, errors, games = run_matchup(
+                rb, candidate_dir, opponent_dir, args.battles, engine_dir, save_losses_dir, repeat_index
+            )
             repeat_results.append((wins, games))
             pooled_errors += errors
         pooled_wins = sum(w for w, g in repeat_results)
