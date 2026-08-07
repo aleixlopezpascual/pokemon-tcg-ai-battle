@@ -1,0 +1,40 @@
+.claude/skills/kaggle-competition-playbook/references/01-competition-patterns.md
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-215
+.claude/skills/kaggle-competition-playbook/references/06-competition-types-submission-workflow.md
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-96
+.claude/skills/kaggle-competition-playbook/references/code-competition-debugging.md
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-78
+.claude/skills/kaggle-competition-playbook/references/competition-intel.md
+  s_70a7d6b651ab41::t_5946969b2bc949 76-92
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-75,93-107
+.claude/skills/kaggle-competition-playbook/references/submission-endgame.md
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-77
+.claude/skills/kaggle-competition-playbook/references/03-automation-patterns.md
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-499
+.claude/skills/kaggle-competition-playbook/references/information-sharing-policy.md
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-37
+.claude/skills/kaggle-competition-playbook/SKILL.md
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-23
+notebooks/kaggle-research/discussion-intel-report.md
+  s_70a7d6b651ab41::t_e202dba8e5bdc9 1-232
+  s_70a7d6b651ab41::t_acc75854e0fd00 233-257,259-289
+  s_70a7d6b651ab41::t_b1644a9185c557 258
+.claude/skills/kaggle-competition-playbook/references/rl-game-case-study.md
+  s_70a7d6b651ab41::t_d7d7397d2ce927 1-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3f7c93d96cebbdc85f485e782552187cee3ec799",
+  "prompts": {},
+  "sessions": {
+    "s_70a7d6b651ab41": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf799ca5-7554-4bcb-adb6-240c434d2a10",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
