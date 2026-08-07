@@ -26,6 +26,7 @@ DEFAULT_OPPONENTS = [
     REPO_ROOT / "submissions" / "kiyota_mega_lucario_ex",
     REPO_ROOT / "submissions" / "masamikobayashi_archaludon_cinderace",
     REPO_ROOT / "submissions" / "soutasakurai_libraryout_crustle",
+    REPO_ROOT / "submissions" / "il_agent_v2b",
 ]
 
 
