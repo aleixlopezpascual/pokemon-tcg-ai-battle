@@ -1,0 +1,21 @@
+CLAUDE.md
+  s_75233bd30f2fbe::t_054067a11cddbd 149-153
+  s_75233bd30f2fbe::t_5910c7cc36b4f0 121-125
+  s_75233bd30f2fbe::t_d0b542fa274b03 94-95,105-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b5fb0d486ea18f389c2d7bad12d18c19df7f0e97",
+  "prompts": {},
+  "sessions": {
+    "s_75233bd30f2fbe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9ec3328d-2de9-4d51-ab3b-82444e8b09bd",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
