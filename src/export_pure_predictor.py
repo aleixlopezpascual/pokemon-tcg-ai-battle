@@ -16,7 +16,7 @@ import argparse
 import json
 
 
-def export_model(model_path: str, out_path: str):
+def export_model(model_path: str, out_path: str, threshold: float = 0.5):
     import joblib  # only needed for this export step, never at inference time
 
     # Safe: loading our own model artifact, trained locally in this session — not an
@@ -50,15 +50,17 @@ def export_model(model_path: str, out_path: str):
         "feature_columns": feature_columns,
         "baseline": baseline,
         "trees": trees,
+        "threshold": threshold,
     }
     with open(out_path, "w") as f:
         json.dump(payload, f)
-    print(f"exported {len(trees)} trees, {sum(len(t) for t in trees)} nodes -> {out_path}")
+    print(f"exported {len(trees)} trees, {sum(len(t) for t in trees)} nodes, threshold={threshold} -> {out_path}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", default="models/il_scorer_v2.pkl")
     parser.add_argument("--out", default="models/il_scorer_v2_pure.json")
+    parser.add_argument("--threshold", type=float, default=0.5)
     args = parser.parse_args()
-    export_model(args.model, args.out)
+    export_model(args.model, args.out, args.threshold)
