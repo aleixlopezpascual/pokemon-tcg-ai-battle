@@ -223,6 +223,82 @@ doc's own earlier calibration note, pooled local win rate is a coarse "not obvio
 filter, not a ladder-μ predictor — this run's job was to confirm the fix didn't regress anything
 locally, not to forecast the real score.
 
+## Dragapult ex `no_active` loss investigation and fix (2026-08-08)
+
+`kiyota_dragapult_ex` (raw, submitted as `55335494`, real score settled **703.5**) was showing
+`no_active` (`Result.reason == 3`) losses in local eval, roughly 15-25% of losses vs Archaludon
+and Lucario. User confirmed building a "bench guard" to target this. Before writing anything,
+traced the actual replay JSON for the loss pattern (`local_eval.py --save-losses`,
+`cg.game.visualize_data()` merged with per-step obs/action) rather than assuming the fix from the
+aggregate stat alone — this session's standing discipline.
+
+**First correction (premise didn't survive tracing):** the first three sampled `no_active`
+losses (2 vs Archaludon, 1 vs Lucario) each showed the bench genuinely had **zero legal Basic
+Pokémon to place** at the fatal decision — Drakloak (a Stage 1) isn't a Basic and can't be
+benched directly; the deck only carries 6 real Basics in 60 cards (Dreepy×4, Budew×2). A
+"prioritize benching when possible" guard would not have prevented any of those three losses —
+there was nothing legal to bench. This is genuine deck-thinness risk, not a decision bug.
+
+**Second pass, real bug found:** re-examining one trace (`…archaludon_cinderace_r0_battle3`,
+step 5) at the *option level* (not just hand/bench snapshots) showed the agent had **two ignored
+legal alternatives** to the action it actually took (attaching energy to its lone active): (a)
+play `Fezandipiti_ex` — a Basic Pokémon sitting in hand — onto the empty bench, or (b) dig with
+`Ultra_Ball`. It attached energy instead. Root cause in `main_option_proc`'s `hand_score`
+closure: every other non-Dreepy-line Basic (`Budew`, `Meowth_ex`, `Latias_ex`) has an explicit
+fallback branch giving it a positive score even outside its special-case conditions (e.g. Budew:
+`elif state.turn >= 2: score = 30000`) — but `Fezandipiti_ex`'s branch had no such fallback:
+
+```python
+elif id == Fezandipiti_ex:
+    if pre_ko:
+        score = 50000
+    elif prize_diff <= -2:
+        score = 5
+    elif len(op_state.prize) == 1:
+        score = UNNECESSARY
+    # falls through to score = 0 otherwise
+```
+
+And the `OptionType.PLAY` handler gates strictly on that score: `if card_score > 0: score =
+53000 else: score = -1` — so whenever none of the three special conditions held (the common
+case, including exactly the empty-bench emergency observed), `Fezandipiti_ex` was **vetoed from
+ever being played**, regardless of board state. Fix (`submissions/kiyota_dragapult_ex/main.py`,
+in the `hand_score` closure):
+
+```python
+elif id == Fezandipiti_ex:
+    if pre_ko:
+        score = 50000
+    elif prize_diff <= -2:
+        score = 5
+    elif len(op_state.prize) == 1:
+        score = UNNECESSARY
+    elif len(my_state.bench) == 0:
+        score = 25000
+```
+
+`my_state.bench` is the player's own bench list — never contains `None` (own-side state has no
+hidden information, confirmed by the existing code's unguarded `for card in my_state.bench:`
+loop with no None-check, unlike the opponent-facing `active` loop which does guard against it).
+
+**Validated before submitting** — `local_eval.py --battles 20 --repeats 3 --save-losses`,
+compared against the pre-fix baseline:
+
+| | pre-fix | post-fix |
+|---|---|---|
+| pooled win rate | 158/225 (70.2%) [63.9, 75.8] | 214/300 (71.3%) [66.0, 76.2] |
+| vs Archaludon | 35.6% | 35.0% [24.2, 47.6] |
+| vs Archaludon, `no_active` share of losses | ~15-25%* | 3/39 losses = **7.7%** |
+| vs Lucario, `no_active` share of losses | ~15-25%* | 1/24 losses = **4.2%** |
+
+*(aggregate estimate from the original loss-reason classification, not matchup-specific)*
+
+Pooled and per-matchup win rates are statistically unchanged (CIs heavily overlap) — this is the
+expected signature of a clean, narrowly-scoped fix: it doesn't touch any other decision path, so
+nothing else should move. The `no_active` share dropped ~3-4x in the two matchups where it
+mattered. Residual `no_active` losses remain (the genuine no-basic-in-hand deck-thinness cases
+from the first tracing pass) — this fix does not and cannot eliminate those.
+
 ## Facts worth carrying forward as-is (official game rules, not proprietary code)
 
 From `pulled/TomBombadyl__kaggle_pokemon/RULINGS.md` Part 4 (their own citations of the

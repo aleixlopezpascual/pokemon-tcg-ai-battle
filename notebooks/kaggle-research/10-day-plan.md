@@ -107,6 +107,25 @@ competitive a given kernel's disclosed LB score actually is.
 
 | `55335494` | 2026-08-07 23:12 UTC | Official Kiyota Dragapult ex sample (raw, no bench guard yet) — second archetype track. TomBombadyl's private testing showed this exact official sample + one bench guard hit 880.9 μ, above anything gotten from Archaludon so far. Testing the raw sample first before investing guard-engineering effort in an unfamiliar 850-line codebase. Local pooled WR 61% (`submissions/kiyota_dragapult_ex/`). | PENDING | Note: `kaggle`'s daily quota resets on UTC midnight, not local date — this was still "2026-08-07" quota-day despite local date already reading 08-08. **Quota now 5/5 used for 08-07-UTC, 0 remaining until rollover.** |
 
+`55335494` settled at **727.3** on a later reading (up from the initial 703.5).
+
+## 2026-08-08 — Dragapult ex `no_active` loss fix
+
+Traced Dragapult's `no_active` losses via `local_eval.py --save-losses`/`--repeats` (see
+`baseline-comparison.md`'s "Dragapult ex `no_active` loss investigation and fix" section for the
+full trace-level writeup). First hypothesis (a generic "bench guard") didn't survive tracing —
+0/3 sampled losses had a legal Basic sitting unbenched. Second pass found a real bug:
+`Fezandipiti_ex` (a legal Basic) had no fallback score in `hand_score` outside three narrow
+ability-timing conditions, so `OptionType.PLAY`'s `card_score > 0` gate vetoed ever playing it —
+including onto a fully empty bench in a real traced loss. Fixed with one line (`elif
+len(my_state.bench) == 0: score = 25000`). Validated locally: `no_active` share of losses
+dropped ~3-4x (Archaludon 15-25%→7.7%, Lucario 15-25%→4.2%), pooled/matchup win rates unchanged
+(71.3% vs 70.2%, 35.0% vs 35.6%) — clean, isolated fix, no regression.
+
+| Ref | Date | Description | Status | μ |
+|---|---|---|---|---|
+| `55336268` | 2026-08-08 00:02 UTC | Dragapult ex, Fezandipiti_ex empty-bench fix (see above) — one-line fix, `no_active` loss share cut ~3-4x locally vs Archaludon/Lucario, no regression elsewhere | PENDING | New day's quota (5/5 available at 00:00 UTC rollover), this used 1. 4/5 remaining for 2026-08-08. |
+
 **New durable lesson for `CLAUDE.md`**: any submission that imports beyond stdlib + `cg` is a real, demonstrated risk — the Kaggle simulation sandbox is very likely more minimal than the interactive notebook environment the discussion threads describe. Prefer pure-Python/stdlib implementations for anything shipped to the ladder; if a trained model is genuinely needed, export its decision logic to a dependency-free format rather than pickling the library object.
 
 ## 2026-08-07 — rule-based hardening pass (parallel worktree, while waiting on the IL reading)
