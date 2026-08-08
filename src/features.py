@@ -67,7 +67,7 @@ CARD_ATTRS_CSV = REPO_ROOT / "data" / "raw" / "EN_Card_Attrs.csv"
 
 def load_card_attrs(csv_path: Path = CARD_ATTRS_CSV) -> dict:
     """cardId -> {retreatCost, ex, megaEx, tera, energyType, weakness, resistance,
-    evolvesFrom (bool: has one), n_attacks}"""
+    evolvesFrom (bool: has one), n_attacks, basic}"""
     attrs = {}
     with open(csv_path, encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
@@ -85,6 +85,7 @@ def load_card_attrs(csv_path: Path = CARD_ATTRS_CSV) -> dict:
                 "resistance": int(row["resistance"]) if row.get("resistance") not in (None, "", "None") else -1,
                 "has_evolvesFrom": int(bool(row.get("evolvesFrom"))),
                 "n_attacks": int(row.get("n_attacks", 0) or 0),
+                "basic": int(row.get("basic", 0) or 0),
             }
     return attrs
 
@@ -300,6 +301,7 @@ def option_features(
         "opt_card_megaEx": attrs.get("megaEx", 0),
         "opt_card_energyType": attrs.get("energyType", -1),
         "opt_card_has_evolvesFrom": attrs.get("has_evolvesFrom", 0),
+        "opt_card_is_basic": attrs.get("basic", 0),
         "opt_card_n_attacks": attrs.get("n_attacks", -1),
         "opt_is_own": int(option.get("playerIndex", current.get("yourIndex")) == current.get("yourIndex")),
         "opt_target_card_id": target.get("id", -1) if target else -1,
