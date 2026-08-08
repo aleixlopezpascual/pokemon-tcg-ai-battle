@@ -84,7 +84,7 @@ CARD_ATTRS_CSV = REPO_ROOT / "data" / "raw" / "EN_Card_Attrs.csv"
 
 def load_card_attrs(csv_path: Path = CARD_ATTRS_CSV) -> dict:
     """cardId -> {retreatCost, ex, megaEx, tera, energyType, weakness, resistance,
-    evolvesFrom (bool: has one), n_attacks, basic}"""
+    evolvesFrom (bool: has one), n_attacks, basic, attacks (list[int] of attack IDs)}"""
     attrs = {}
     with open(csv_path, encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
@@ -103,6 +103,7 @@ def load_card_attrs(csv_path: Path = CARD_ATTRS_CSV) -> dict:
                 "has_evolvesFrom": int(bool(row.get("evolvesFrom"))),
                 "n_attacks": int(row.get("n_attacks", 0) or 0),
                 "basic": int(row.get("basic", 0) or 0),
+                "attacks": [int(a) for a in (row.get("attacks") or "").split("|") if a != ""],
             }
     return attrs
 
@@ -282,6 +283,19 @@ def global_features(select: dict, current: dict, actor_score=None, opp_score=Non
     }
 
 
+def _cheapest_attack_gap(pokemon_card_ids: list, energy_count: int, attack_data: dict, card_attrs: dict) -> int:
+    """Given a Pokemon's card id and current energy count, return how many MORE energy
+    attachments its cheapest known attack still needs (0 if already affordable)."""
+    attrs = (card_attrs or {}).get(pokemon_card_ids, {})
+    attack_ids = attrs.get("attacks") or []
+    costs = [attack_data.get(aid, {}).get("energyCost") for aid in attack_ids]
+    costs = [c for c in costs if c is not None]
+    if not costs:
+        return -1  # no known attacks (e.g. not evolved enough yet, or data gap) — unresolvable
+    cheapest = min(costs)
+    return max(0, cheapest - energy_count)
+
+
 def option_features(
     option: dict,
     select: dict,
@@ -300,6 +314,14 @@ def option_features(
 
     opp_active_hp = (g or {}).get("opp_active_hp", 0) or 0
     is_lethal = int(option.get("type") == OPT_ATTACK and attack.get("damage", 0) >= opp_active_hp > 0)
+
+    energy_gap_before = -1
+    energy_gap_after = -1
+    if option.get("type") == OPT_ATTACH and target:
+        target_energy_count = len(target.get("energyCards") or [])
+        energy_gap_before = _cheapest_attack_gap(target.get("id"), target_energy_count, attack_data, card_attrs)
+        if energy_gap_before != -1:
+            energy_gap_after = max(0, energy_gap_before - 1)
 
     return {
         "opt_type": option.get("type", -1),
@@ -329,6 +351,8 @@ def option_features(
         "opt_target_n_energies": len(target.get("energyCards") or []) if target else -1,
         "opt_target_n_tools": len(target.get("tools") or []) if target else -1,
         "opt_target_appearThisTurn": int(bool(target.get("appearThisTurn"))) if target else -1,
+        "opt_energy_gap_before": energy_gap_before,
+        "opt_energy_gap_after": energy_gap_after,
     }
 
 
