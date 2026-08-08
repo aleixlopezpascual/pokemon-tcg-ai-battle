@@ -399,7 +399,7 @@ def _option_signature(row: dict, index: int) -> tuple:
 
 
 def records_to_rows(records, card_data: dict, attack_data: dict = None, card_attrs: dict = None):
-    """Yield (feature_dict, label, decision_key, weight) for every (decision, option) pair.
+    """Yield (feature_dict, label, decision_key, weight, episode_id) for every (decision, option) pair.
     All options sharing the chosen option's equivalence signature are labeled positive, not just
     the literal chosen index — see _option_signature."""
     for rec_idx, rec in enumerate(records):
@@ -415,12 +415,12 @@ def records_to_rows(records, card_data: dict, attack_data: dict = None, card_att
         for i, o in enumerate(rows):
             row = {**g, **o}
             label = 1 if _option_signature(o, i) in chosen_signatures else 0
-            yield row, label, rec_idx, w
+            yield row, label, rec_idx, w, rec.get("episode_id")
 
 
 def build_dataset(records_path: str, card_data_path: str = None, attack_data_path: str = None,
                    card_attrs_path: str = None, max_records: int = None):
-    """Load JSONL records and return (rows, labels, decision_ids, weights) as parallel lists."""
+    """Load JSONL records and return (rows, labels, decision_ids, weights, episode_ids) as parallel lists."""
     card_data = load_card_data(Path(card_data_path) if card_data_path else CARD_DATA_CSV)
     attack_data = load_attack_data(Path(attack_data_path) if attack_data_path else ATTACK_DATA_CSV)
     card_attrs = load_card_attrs(Path(card_attrs_path) if card_attrs_path else CARD_ATTRS_CSV)
@@ -431,17 +431,18 @@ def build_dataset(records_path: str, card_data_path: str = None, attack_data_pat
                 break
             records.append(json.loads(line))
 
-    rows, labels, decision_ids, weights = [], [], [], []
-    for row, label, decision_id, w in records_to_rows(records, card_data, attack_data, card_attrs):
+    rows, labels, decision_ids, weights, episode_ids = [], [], [], [], []
+    for row, label, decision_id, w, episode_id in records_to_rows(records, card_data, attack_data, card_attrs):
         rows.append(row)
         labels.append(label)
         decision_ids.append(decision_id)
         weights.append(w)
-    return rows, labels, decision_ids, weights
+        episode_ids.append(episode_id)
+    return rows, labels, decision_ids, weights, episode_ids
 
 
 if __name__ == "__main__":
-    rows, labels, decision_ids, weights = build_dataset("data/processed/il_records.jsonl")
+    rows, labels, decision_ids, weights, episode_ids = build_dataset("data/processed/il_records.jsonl")
     print(f"{len(rows)} (decision, option) rows from {len(set(decision_ids))} decisions")
     print(f"positive rate: {sum(labels) / len(labels):.3f}")
     print(f"mean sample weight: {sum(weights) / len(weights):.3f}")

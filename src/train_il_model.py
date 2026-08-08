@@ -52,15 +52,16 @@ def main():
     args = parser.parse_args()
 
     print("building dataset...")
-    rows, labels, decision_ids, weights = build_dataset(args.records, max_records=args.max_records)
+    rows, labels, decision_ids, weights, episode_ids = build_dataset(args.records, max_records=args.max_records)
     X = pd.DataFrame(rows)
     y = np.array(labels)
-    groups = np.array(decision_ids)
+    groups = np.array(decision_ids)  # still used for the per-decision accuracy metric
+    split_groups = np.array(episode_ids)  # used for the split itself, prevents same-episode leakage
     w = np.array(weights)
     print(f"{len(X)} rows, {len(np.unique(groups))} decisions, positive rate {y.mean():.3f}")
 
     splitter = GroupShuffleSplit(n_splits=1, test_size=args.test_size, random_state=0)
-    train_idx, test_idx = next(splitter.split(X, y, groups))
+    train_idx, test_idx = next(splitter.split(X, y, split_groups))
     X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
     y_train, y_test = y[train_idx], y[test_idx]
     w_train = w[train_idx]
