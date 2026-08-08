@@ -141,6 +141,23 @@ exception fallback that could itself crash if `maxCount` ever exceeded the optio
 
 **4 of 5 daily uploads remain for 2026-08-06.** Only 2 Final Submissions count for placement and must be *manually* selected later — don't forget this near the deadline.
 
+## 2026-08-08 — IL agent v3 scaled-up push, frozen at Gate B
+
+Plan: `docs/superpowers/plans/2026-08-08-il-agent-v3-scaled-push.md`. 7 of 8 tasks executed via
+`superpowers:subagent-driven-development` (guardrail layer, leaderboard-score attachment,
+ELO-conditioning + sample weighting, duplicate-option label fix — plus a real bug in that fix
+caught by an independent security review post-completion and re-fixed — `energy_gap` feature,
+full retrain, threshold calibration/export/packaging). **Task 8 (submit) was not run.**
+
+Gate B (`local_eval.py` pooled win rate) failed badly: **30.3% [25.4, 35.8]**, vs. a 47.5-47.6%
+bar (v2's real score and a same-model-plus-guardrail checkpoint). Full write-up, including the
+clean signal that the regression traces to Task 6's retrain specifically (not the guardrail or
+export/packaging, both independently re-verified correct), in `baseline-comparison.md`'s "IL
+agent v3" section. **No submission spent on this** — decided (human-confirmed) to freeze the IL
+track again rather than iterate further, given ~7 days left and two real IL attempts now both
+underperforming every rule-based candidate. `submissions/il_agent_v3/` exists locally but is not
+and should not be submitted without a resolved diagnosis.
+
 ## Known constraints to keep in mind throughout
 
 - **Discussion mining is scriptable via the Kaggle CLI** (`kaggle competitions topics

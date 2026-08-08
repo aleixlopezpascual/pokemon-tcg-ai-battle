@@ -299,6 +299,73 @@ nothing else should move. The `no_active` share dropped ~3-4x in the two matchup
 mattered. Residual `no_active` losses remain (the genuine no-basic-in-hand deck-thinness cases
 from the first tracing pass) — this fix does not and cannot eliminate those.
 
+## IL agent v3 — scaled-up supervised push, and why it's frozen (2026-08-08)
+
+Full plan at `docs/superpowers/plans/2026-08-08-il-agent-v3-scaled-push.md`, executed via
+`superpowers:subagent-driven-development` (7 of 8 tasks completed; Task 8's submission step was
+never run — see below). Every task was independently reviewed (spec + code quality), including
+two real bugs caught by review that would not have been caught by the implementers' own
+self-checks:
+
+- **Task 1** (guardrail layer: forced lethal attacks, forced bench-fill from an available Basic
+  when empty): a real logic bug (`elif` instead of nested `if` let the bench-guardrail override
+  an already-correct lethal-attack choice) was found and fixed in review round 1.
+- **Task 4** (fix MAIN duplicate-option label noise — e.g. 4 copies of Ultra Ball in hand should
+  all count as "correct" if any is chosen): an *automated security review*, run independently
+  after the task was already marked complete, found the equivalence-signature logic wrongly
+  collapsed unrelated `OPT_NUMBER`/`OPT_RETREAT`/`OPT_END`/face-down-`OPT_CARD` options together
+  (they all share `card_id == -1`, so distinct choices like "discard 3" vs "discard 5" were
+  wrongly treated as equivalent). Fixed with an explicit allowlist of option types where
+  card/attack identity is a genuine discriminator; everything else falls back to per-index
+  uniqueness. Real, reproducible positive-rate progression on the full dataset: pre-fix baseline
+  0.165 → buggy version 0.252 → correctly-fixed version 0.230.
+- **Task 6** (full retrain): review caught that `GroupShuffleSplit` grouped by `decision_id`
+  (one JSONL line), not `episode_id` — meaning different decisions from the *same* episode could
+  land on both sides of the train/test split, leaking correlated board-state/score context and
+  inflating the offline accuracy number. Fixed to split by episode; Gate A still passed easily
+  (test accuracy 0.675 after the fix, vs. 0.670 before).
+
+**Task 7 (calibrate threshold, export, package, Gate B) is where this stops.** The pipeline
+itself was verified correct end-to-end by an independent review (pure-predictor export matches
+sklearn bit-for-bit, `il_features.py` copy is byte-identical to `src/features.py`, model artifact
+wired correctly, no stale threshold constant left behind) — but the real-game result was bad:
+
+| Checkpoint | Local pooled win rate |
+|---|---|
+| `il_agent_v2` (real Kaggle score 523.1/531.8) | 47.5% |
+| Task 1 (guardrail added to the *same* v2 model, no retrain) | 47.6% [43.0, 52.2] |
+| Task 7 (Tasks 1-6's full retrain: ELO-weighted samples, `energy_gap` feature, dedup-fixed labels, 3x more data, same guardrail) | **30.3% [25.4, 35.8]** |
+
+The clean signal here: Task 1's checkpoint (old v2 model, guardrail only, no retrain) matched
+v2's own real score almost exactly. The *entire* regression appeared between Task 1 and Task 7 —
+i.e., somewhere in Task 6's retrain (the new features, the ELO sample weighting, the dedup label
+fix, or the 3x larger dataset), not in the guardrail or the export/packaging machinery, both of
+which were independently re-verified clean. This is a real, reproducible finding, not noise —
+the CI bands don't overlap at all.
+
+This is consistent with — not contradicted by — the offline accuracy number: Task 6's retrain
+passed its own Gate A comfortably (0.675, well above the 0.55 bar) while playing dramatically
+worse in real games. This project has now observed this exact pattern **three times** (the
+original v1→v2 pairing/resolution-bug work, the v2 vs. v2b specialist-model comparison, and now
+this) — offline per-decision accuracy on this task does not reliably predict real win rate, full
+stop. It is not a proxy worth trusting even directionally without a live-gameplay check.
+
+**Decision (human-confirmed): freeze the IL track again**, per the same discipline used after
+v2's Gate C miss. Two real, expensive attempts (v2's real ladder score of 523-531, and now v3's
+30.3% local pooled rate before even reaching a submission) have both landed well below every
+rule-based candidate this project has produced (Archaludon 711-811, Dragapult 703.5-727.3+).
+Remaining competition days go back to the rule-based tracks, where every confirmed real
+improvement this whole project has come from (the `random.sample` clip fix, the `detect_matchup`
+crash fix, the Dragapult `Fezandipiti_ex` empty-bench fix) — a consistently better return on
+engineering time than another IL retrain cycle. **Do not submit `submissions/il_agent_v3/` to
+Kaggle** — Task 8 of the plan was deliberately not executed.
+
+If IL is ever revisited, the next diagnostic step (not undertaken here, by choice) would be a
+bisection retrain — reverting Task 6's changes one at a time (ELO weighting only; `energy_gap`
+only; dedup fix only) on a `--max-records` subsample — to isolate which specific addition caused
+the regression, since it's now well-localized to "somewhere in Tasks 3-5's feature/data changes,
+as expressed through Task 6's retrain" rather than anywhere else in the pipeline.
+
 ## Facts worth carrying forward as-is (official game rules, not proprietary code)
 
 From `pulled/TomBombadyl__kaggle_pokemon/RULINGS.md` Part 4 (their own citations of the

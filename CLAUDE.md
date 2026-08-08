@@ -124,10 +124,20 @@ but it inverts fine-grained rankings between comparable-strength ones** (see
 way to pick a winner between two candidates that both look decent locally — only a real
 submission answers that with confidence here.
 
-## Current status (2026-08-07, see `10-day-plan.md` for live detail)
+## Current status (2026-08-08, see `10-day-plan.md` for live detail)
 
-Working baseline: `submissions/masamikobayashi_archaludon_cinderace/` (Archaludon ex/Cinderace,
-rule-based, real score 643.1 — best of our own submissions). Pivoting to an imitation-learning
-approach (`submissions/il_agent_v1/`, in progress) per community intel that pure rule-based
-agents cap outside the top ~200; Archaludon stays as the guaranteed fallback / one of the 2
-eventual Final Submissions regardless of how that pivot goes.
+Two rule-based candidates in play, both real-scored and both ahead of anything IL has produced:
+`submissions/masamikobayashi_archaludon_cinderace/` (Archaludon ex/Cinderace, hardened across two
+passes, settled ~711-811) and `submissions/kiyota_dragapult_ex/` (Dragapult ex, 703.5/727.3,
+`Fezandipiti_ex` empty-bench fix submitted `55336268`, pending its 2nd reading). Archaludon stays
+the guaranteed fallback / one of the 2 eventual Final Submissions regardless of what else happens.
+
+**IL track frozen (again).** Two real attempts now: v2 real-scored 523.1/531.8 (well below
+rule-based); a scaled-up v3 push (more/ELO-weighted data, several new features, a guardrail
+layer, a duplicate-option label fix) passed its offline accuracy gate comfortably but scored only
+30.3% pooled in local eval — worse than v2, and clearly traced to the v3 retrain itself, not a
+pipeline bug (both independently verified clean). Decided not to spend a submission on it and to
+stop iterating on IL for now — see `baseline-comparison.md`'s "IL agent v3" section for the full
+diagnosis. This is the second time IL has underperformed rule-based here; treat any future IL
+pitch with real skepticism unless it comes with a concrete, verified fix for *why* the last two
+attempts underperformed, not just more data/features in the same shape.
