@@ -1,0 +1,21 @@
+notebooks/kaggle-research/baseline-comparison.md
+  s_e715a7b414e9ad::t_10d6c882a3aeaf 226-301
+notebooks/kaggle-research/10-day-plan.md
+  s_e715a7b414e9ad::t_1d7695c070692d 110-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d00f444a50b5cdb7d22a38ef89a5540eb2ca1e40",
+  "prompts": {},
+  "sessions": {
+    "s_e715a7b414e9ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff7b0969-daa4-46f3-9eb9-9c3a883d1048",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
