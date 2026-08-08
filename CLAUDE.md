@@ -91,6 +91,8 @@ known, common community gotcha, not a one-off bug.
   - `top-scores-report.md` — Code-tab/kernel score research.
   - `discussion-intel-report.md` — Discussion-forum research (204 topics indexed via
     `kaggle competitions topics list/show`, not manual browsing — see below).
+  - `evaluation-methodology.md` — how local win-rate evaluation is designed and calibrated.
+  - `prioritization-matrix.md` — candidate/task prioritization scoring.
 - `src/` — reusable scripts: `fetch_kaggle_kernels.py` (list/pull public kernels),
   `local_eval.py` (multi-opponent local win-rate harness, see calibration caveat below).
 - `submissions/<name>/` — one directory per candidate agent (gitignored — third-party-derived
@@ -100,8 +102,9 @@ known, common community gotcha, not a one-off bug.
   `secrets-and-data-guard` (pre-push scan, run before every push — this repo is private now but
   will go public later), `kaggle-competition-playbook` (Kaggle-specific workflow guidance,
   curated for this competition's shape).
-- `.claude/agents/game-engine-analyst.md` — the specialist for "what does this Observation field
-  actually mean" questions; reads `cg/api.py`/`game.py`/`sim.py` directly rather than guessing.
+- `.claude/agents/` — `game-engine-analyst.md`, the specialist for "what does this Observation
+  field actually mean" questions (reads `cg/api.py`/`game.py`/`sim.py` directly rather than
+  guessing); `secrets-scanner.md`, run proactively before any push or visibility change.
 
 ## Discussion-forum access (solved, don't re-derive)
 
@@ -115,9 +118,11 @@ CLI's `topics` subcommand works and is authenticated/structured**:
 
 ## Local evaluation — what it can and can't tell you
 
-`python src/local_eval.py --candidate submissions/<name>` pools win rate across a fixed 5-agent
-roster (random baseline + our 3 rule-based submissions + the imitation-learning agent
-`il_agent_v2b`) with Wilson 95% confidence intervals.
+`python src/local_eval.py --candidate submissions/<name>` pools win rate across a fixed 7-agent
+roster (random baseline + rule-based submissions `kiyota_mega_lucario_ex`,
+`masamikobayashi_archaludon_cinderace`, `soutasakurai_libraryout_crustle` + imitation-learning
+agent `il_agent_v2b` + newer candidates `aristophanivan_probablity_v2`,
+`biohack44_alakazam_dunsparce`) with Wilson 95% confidence intervals.
 **Calibrated against real ladder scores and found to correctly flag obviously-weak candidates,
 but it inverts fine-grained rankings between comparable-strength ones** (see
 `baseline-comparison.md`'s calibration table). Use it as a pre-submission sanity gate, not a
@@ -141,3 +146,8 @@ stop iterating on IL for now — see `baseline-comparison.md`'s "IL agent v3" se
 diagnosis. This is the second time IL has underperformed rule-based here; treat any future IL
 pitch with real skepticism unless it comes with a concrete, verified fix for *why* the last two
 attempts underperformed, not just more data/features in the same shape.
+
+Two more candidates audited and added to the local-eval roster but **not submitted** —
+`aristophanivan_probablity_v2` (real badge 933.8, local pooled 59.7%) and
+`biohack44_alakazam_dunsparce` (Profile B) — both lose locally to Archaludon/Crustle, so neither
+is worth a submission slot right now.
