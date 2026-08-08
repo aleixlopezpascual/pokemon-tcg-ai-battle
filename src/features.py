@@ -42,6 +42,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CARD_DATA_CSV = REPO_ROOT / "data" / "raw" / "EN Card Data.csv"
 ATTACK_DATA_CSV = REPO_ROOT / "data" / "raw" / "EN_Attack_Data.csv"
 
+NEUTRAL_SCORE = 1150.0  # "how would a ~1150-rated player play" — used at inference (no real
+                          # opponent score is knowable mid-game) and for training records with
+                          # no leaderboard join (the original 299-episode data, pre-Task-2).
+
+
+def _score_norm(score) -> float:
+    s = score if score is not None else NEUTRAL_SCORE
+    return (s - 1000.0) / 200.0
+
+
+def sample_weight(actor_score, actor_reward) -> float:
+    """Weight training rows toward stronger, winning players. Records with no leaderboard join
+    (actor_score is None) get the neutral weight of 1.0 pre-reward-multiplier."""
+    base = 1.0 if actor_score is None else max(0.6, min(1.6, 1.0 + (actor_score - 1000.0) / 200.0))
+    won = (actor_reward or 0) > 0
+    return base * (1.5 if won else 1.0)
+
 
 def load_attack_data(csv_path: Path = ATTACK_DATA_CSV) -> dict:
     """attackId -> {damage: int, energyCost: int, energies: list[int] (typed EnergyType ids)}"""
@@ -224,7 +241,7 @@ def resolve_option(option: dict, select: dict, current: dict):
     return source_card_id, target
 
 
-def global_features(select: dict, current: dict) -> dict:
+def global_features(select: dict, current: dict, actor_score=None, opp_score=None) -> dict:
     your_index = current.get("yourIndex")
     players = current.get("players", [])
     you = players[your_index] if your_index is not None and your_index < len(players) else {}
@@ -260,6 +277,8 @@ def global_features(select: dict, current: dict) -> dict:
         "select_context": select.get("context", -1),
         "select_minCount": select.get("minCount", 1) or 1,
         "select_maxCount": select.get("maxCount", 1) or 1,
+        "actor_score_norm": _score_norm(actor_score),
+        "opp_score_norm": _score_norm(opp_score),
     }
 
 
@@ -333,41 +352,47 @@ def _add_listwise_features(rows: list) -> None:
 
 
 def records_to_rows(records, card_data: dict, attack_data: dict = None, card_attrs: dict = None):
-    """Yield (feature_dict, label, decision_key) for every (decision, option) pair."""
+    """Yield (feature_dict, label, decision_key, weight) for every (decision, option) pair."""
     for rec_idx, rec in enumerate(records):
         select = rec["select"]
         current = rec["current"]
         action = set(rec["action"])
-        g = global_features(select, current)
+        g = global_features(select, current, rec.get("actor_score"), rec.get("opp_score"))
+        w = sample_weight(rec.get("actor_score"), rec.get("actor_reward"))
         options = select.get("option") or []
         rows = [option_features(option, select, current, card_data, attack_data, card_attrs, g) for option in options]
         _add_listwise_features(rows)
         for i, o in enumerate(rows):
             row = {**g, **o}
             label = 1 if i in action else 0
-            yield row, label, rec_idx
+            yield row, label, rec_idx, w
 
 
-def build_dataset(records_path: str, card_data_path: str = None, attack_data_path: str = None, card_attrs_path: str = None):
-    """Load JSONL records and return (rows: list[dict], labels: list[int], decision_ids: list[int])."""
+def build_dataset(records_path: str, card_data_path: str = None, attack_data_path: str = None,
+                   card_attrs_path: str = None, max_records: int = None):
+    """Load JSONL records and return (rows, labels, decision_ids, weights) as parallel lists."""
     card_data = load_card_data(Path(card_data_path) if card_data_path else CARD_DATA_CSV)
     attack_data = load_attack_data(Path(attack_data_path) if attack_data_path else ATTACK_DATA_CSV)
     card_attrs = load_card_attrs(Path(card_attrs_path) if card_attrs_path else CARD_ATTRS_CSV)
     records = []
     with open(records_path) as f:
-        for line in f:
+        for i, line in enumerate(f):
+            if max_records is not None and i >= max_records:
+                break
             records.append(json.loads(line))
 
-    rows, labels, decision_ids = [], [], []
-    for row, label, decision_id in records_to_rows(records, card_data, attack_data, card_attrs):
+    rows, labels, decision_ids, weights = [], [], [], []
+    for row, label, decision_id, w in records_to_rows(records, card_data, attack_data, card_attrs):
         rows.append(row)
         labels.append(label)
         decision_ids.append(decision_id)
-    return rows, labels, decision_ids
+        weights.append(w)
+    return rows, labels, decision_ids, weights
 
 
 if __name__ == "__main__":
-    rows, labels, decision_ids = build_dataset("data/processed/il_records.jsonl")
+    rows, labels, decision_ids, weights = build_dataset("data/processed/il_records.jsonl")
     print(f"{len(rows)} (decision, option) rows from {len(set(decision_ids))} decisions")
     print(f"positive rate: {sum(labels) / len(labels):.3f}")
+    print(f"mean sample weight: {sum(weights) / len(weights):.3f}")
     print("sample row:", rows[0])
