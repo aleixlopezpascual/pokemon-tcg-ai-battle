@@ -42,13 +42,14 @@ def _player_deck(steps, player_idx):
     return None
 
 
-def extract_records_from_dict(data: dict):
+def extract_records_from_dict(data: dict, scores: list = None):
     episode_id = data.get("id") or data.get("info", {}).get("EpisodeId")
     steps = data["steps"]
     rewards = data.get("rewards") or [None, None]
     info = data.get("info") or {}
     team_names = info.get("TeamNames") or [None, None]
     decks = [_player_deck(steps, 0), _player_deck(steps, 1)]
+    scores = scores or [None, None]
 
     records = []
     tripwire_failures = 0
@@ -85,6 +86,8 @@ def extract_records_from_dict(data: dict):
                     "actor_team": team_names[player_idx] if player_idx < len(team_names) else None,
                     "opp_team": team_names[opp_idx] if opp_idx < len(team_names) else None,
                     "actor_reward": rewards[player_idx] if player_idx < len(rewards) else None,
+                    "actor_score": scores[player_idx] if player_idx < len(scores) else None,
+                    "opp_score": scores[opp_idx] if opp_idx < len(scores) else None,
                     "turn": (obs["current"] or {}).get("turn"),
                     "actor_deck": decks[player_idx],
                 }

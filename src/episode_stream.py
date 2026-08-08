@@ -55,16 +55,19 @@ def stream_day(day: str, lookup: dict, out_path: Path, score_floor: float = SCOR
                 continue
             team_names = (data.get("info") or {}).get("TeamNames") or [None, None]
             scores = [score_for(lookup, t) for t in team_names]
-            if not any(s is not None and s >= score_floor for s in scores):
+            keep_sides = {i for i, s in enumerate(scores) if s is not None and s >= score_floor}
+            if not keep_sides:
                 continue
             kept += 1
-            records, tw = extract_records_from_dict(data)
+            records, tw = extract_records_from_dict(data, scores=scores)
             tripwire += tw
             for r in records:
-                out_f.write(json.dumps(r) + "\n")
+                if r["player"] in keep_sides:
+                    out_f.write(json.dumps(r) + "\n")
 
     downloaded.unlink(missing_ok=True)
-    print(f"{day}: {kept}/{seen} episodes kept (score >= {score_floor}), {tripwire} tripwire failures -> {out_path}")
+    print(f"{day}: {kept}/{seen} episodes kept (>=1 side score >= {score_floor}), "
+          f"{tripwire} tripwire failures -> {out_path}")
     return kept, seen
 
 
