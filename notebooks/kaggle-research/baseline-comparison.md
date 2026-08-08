@@ -383,3 +383,22 @@ themselves):
   opponent's hand contents, deck order, and prizes are hidden (only counts are visible). Build
   decision logic accordingly rather than assuming full state visibility.
 - **Clock**: 10 minutes total per player per game; running out is an immediate loss.
+
+## New candidates added to the pool, not yet submitted (2026-08-08)
+
+Two more real candidates built and added to `local_eval.py`'s default roster — full audit in
+`notebook-audit-template.md`. Neither beats hardened Archaludon locally, so neither has been
+submitted.
+
+- **`submissions/aristophanivan_probablity_v2`** — a rule-based Lucario/Abomasnow hybrid with a
+  real determinized-search layer (verified genuine `cg.api.search_begin/step/end/release` calls,
+  an engine-native technique this repo hadn't touched before). Real Code-tab badge score 933.8
+  (same author-account caveat as other badges). Local: pooled 59.7% [54.6, 64.7] over 360 games —
+  strong against weak/generic opponents, but loses to Archaludon (28.3%), the Crustle mill deck
+  (36.7%), and the new Alakazam/Dunsparce candidate (31.7%).
+- **`submissions/biohack44_alakazam_dunsparce`** — extracted from a locally-downloaded notebook
+  that turned out to be byte-identical (SHA256-verified via safe static AST parsing, no code
+  execution) to `biohack44/pok-mon-tcg-ai-battle-meta-snapshot-07-july`, already in our pulled
+  set. Its Profile A is the already-submitted-and-scored `flex_archaludon_0018_minus1182_plus1213`
+  (682.0/694.4 real) — skipped as redundant. Profile B (this one) was never tested before; weak
+  early signal (31.7% as an opponent in the run above).

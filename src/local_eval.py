@@ -30,6 +30,8 @@ DEFAULT_OPPONENTS = [
     REPO_ROOT / "submissions" / "masamikobayashi_archaludon_cinderace",
     REPO_ROOT / "submissions" / "soutasakurai_libraryout_crustle",
     REPO_ROOT / "submissions" / "il_agent_v2b",
+    REPO_ROOT / "submissions" / "aristophanivan_probablity_v2",
+    REPO_ROOT / "submissions" / "biohack44_alakazam_dunsparce",
 ]
 
 
