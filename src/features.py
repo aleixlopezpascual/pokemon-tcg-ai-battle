@@ -375,11 +375,27 @@ def _add_listwise_features(rows: list) -> None:
         r["opt_is_lethal_available_in_decision"] = int(any_lethal)
 
 
-def _option_signature(row: dict) -> tuple:
-    """Two options are functionally equivalent (e.g. 4 copies of Ultra Ball in hand) if they
-    have the same type, resolve to the same card, target the same Pokemon, and reference the
-    same attack. Index differs (which physical copy), but the decision is the same."""
-    return (row["opt_type"], row["opt_card_id"], row.get("opt_target_card_id", -1), row.get("opt_attackId", -1))
+_EQUIVALENCE_ELIGIBLE_TYPES = {
+    OPT_PLAY, OPT_ATTACH, OPT_EVOLVE, OPT_ABILITY, OPT_DISCARD,
+    OPT_TOOL_CARD, OPT_ENERGY_CARD, OPT_ENERGY, OPT_ATTACK,
+}
+
+
+def _option_signature(row: dict, index: int) -> tuple:
+    """Two options are functionally equivalent only when their type has a genuinely
+    discriminating resolved field (card identity and/or attack identity) — see
+    resolve_option()'s own docstring for which types those are. Options of any other type
+    (OPT_NUMBER, OPT_RETREAT, OPT_END, and OPT_CARD referencing a face-down AREA_PRIZE card,
+    which resolve_option itself calls "genuinely face-down, unresolvable") fall back to a
+    per-index signature, so they are never wrongly grouped as equivalent to a different real
+    choice that merely also failed to resolve a card id."""
+    opt_type = row["opt_type"]
+    eligible = opt_type in _EQUIVALENCE_ELIGIBLE_TYPES or (
+        opt_type == OPT_CARD and row.get("opt_area") != AREA_PRIZE
+    )
+    if not eligible:
+        return ("idx", index)
+    return (opt_type, row["opt_card_id"], row.get("opt_target_card_id", -1), row.get("opt_attackId", -1))
 
 
 def records_to_rows(records, card_data: dict, attack_data: dict = None, card_attrs: dict = None):
@@ -395,10 +411,10 @@ def records_to_rows(records, card_data: dict, attack_data: dict = None, card_att
         options = select.get("option") or []
         rows = [option_features(option, select, current, card_data, attack_data, card_attrs, g) for option in options]
         _add_listwise_features(rows)
-        chosen_signatures = {_option_signature(rows[i]) for i in action if i < len(rows)}
+        chosen_signatures = {_option_signature(rows[i], i) for i in action if i < len(rows)}
         for i, o in enumerate(rows):
             row = {**g, **o}
-            label = 1 if _option_signature(o) in chosen_signatures else 0
+            label = 1 if _option_signature(o, i) in chosen_signatures else 0
             yield row, label, rec_idx, w
 
 
