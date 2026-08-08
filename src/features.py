@@ -351,20 +351,30 @@ def _add_listwise_features(rows: list) -> None:
         r["opt_is_lethal_available_in_decision"] = int(any_lethal)
 
 
+def _option_signature(row: dict) -> tuple:
+    """Two options are functionally equivalent (e.g. 4 copies of Ultra Ball in hand) if they
+    have the same type, resolve to the same card, target the same Pokemon, and reference the
+    same attack. Index differs (which physical copy), but the decision is the same."""
+    return (row["opt_type"], row["opt_card_id"], row.get("opt_target_card_id", -1), row.get("opt_attackId", -1))
+
+
 def records_to_rows(records, card_data: dict, attack_data: dict = None, card_attrs: dict = None):
-    """Yield (feature_dict, label, decision_key, weight) for every (decision, option) pair."""
+    """Yield (feature_dict, label, decision_key, weight) for every (decision, option) pair.
+    All options sharing the chosen option's equivalence signature are labeled positive, not just
+    the literal chosen index — see _option_signature."""
     for rec_idx, rec in enumerate(records):
         select = rec["select"]
         current = rec["current"]
-        action = set(rec["action"])
+        action = rec["action"]
         g = global_features(select, current, rec.get("actor_score"), rec.get("opp_score"))
         w = sample_weight(rec.get("actor_score"), rec.get("actor_reward"))
         options = select.get("option") or []
         rows = [option_features(option, select, current, card_data, attack_data, card_attrs, g) for option in options]
         _add_listwise_features(rows)
+        chosen_signatures = {_option_signature(rows[i]) for i in action if i < len(rows)}
         for i, o in enumerate(rows):
             row = {**g, **o}
-            label = 1 if i in action else 0
+            label = 1 if _option_signature(o) in chosen_signatures else 0
             yield row, label, rec_idx, w
 
 

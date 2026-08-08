@@ -36,9 +36,8 @@ def per_decision_top1_accuracy(model, X: pd.DataFrame, decision_ids: np.ndarray,
         if dec_labels.sum() == 0:
             continue  # shouldn't happen, but be defensive
         predicted_idx = np.argmax(dec_scores)
-        actual_idx = np.argmax(dec_labels)  # first true label position (pointwise top-1 case)
         total += 1
-        if predicted_idx == actual_idx and dec_labels[predicted_idx] == 1:
+        if dec_labels[predicted_idx] == 1:
             correct += 1
     return correct / total if total else 0.0
 
