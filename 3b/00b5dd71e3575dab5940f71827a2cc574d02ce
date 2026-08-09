@@ -1,0 +1,54 @@
+src/test_trueskill_lite.py
+  s_f53c97bf22347e::t_1019c9a07b7254 230-231
+  s_f53c97bf22347e::t_7a2b4511445370 1-128,144,160-165,207-208,220-229,232-238
+  s_f53c97bf22347e::t_033cd5d0250954 188-200,212-219
+  s_f53c97bf22347e::t_cb77e9b403d232 129-143,145-159,166-187,201-206,209-211
+CLAUDE.md
+  s_f53c97bf22347e::t_999a5c6730d5e4 185-192
+  s_f53c97bf22347e::t_8f668b310f9118 97-101
+  s_f53c97bf22347e::t_80fa9849155aec 123,125-165
+notebooks/kaggle-research/evaluation-methodology.md
+  s_f53c97bf22347e::t_ae520e156abd33 107-343
+src/ladder_eval.py
+  s_f53c97bf22347e::t_169a52e3e0ed38 1-56,70-128,173-175,180-212,218-270,279,282-285,287,296-490,492-520,526-543
+  s_f53c97bf22347e::t_64e9ba90523494 521-525
+  s_f53c97bf22347e::t_73576ce314368b 491
+  s_f53c97bf22347e::t_f9959aba47ef4f 57-69
+  s_f53c97bf22347e::t_2bc451fb5a271e 129-172,176-179
+  s_f53c97bf22347e::t_340bae92397926 213-217
+  s_f53c97bf22347e::t_cb5c04d375c39b 271-278,280-281,286,288-295
+src/trueskill_lite.py
+  s_f53c97bf22347e::t_be84875df7680e 49-66,68-80,84-85
+  s_f53c97bf22347e::t_61bebe48857dbc 36-43
+  s_f53c97bf22347e::t_0b2cfb5c4c9721 46-48
+  s_f53c97bf22347e::t_95bcd9c5459d8b 118-119
+  s_f53c97bf22347e::t_e0a35472ee2e8e 1-35,44-45,67,81-83,86-117,120-157
+src/adversarial_validation.py
+  s_f53c97bf22347e::t_acf816085723de 330-341
+  s_f53c97bf22347e::t_daf0d5d647a303 22-30
+  s_f53c97bf22347e::t_cc48c715905550 181-224
+  s_f53c97bf22347e::t_8eed27b85501c6 121-123
+  s_f53c97bf22347e::t_a958ba1041ec54 1-21,31-91,120,135-137,139-142,145-146,169-180,225-273,275-277,279-283,287,323,327-329,342-349,353-369
+  s_f53c97bf22347e::t_d339b033bef53b 278,284-286,288-322,324-326
+  s_f53c97bf22347e::t_a7423d968be1f7 92-119,124-134,138,143-144,147-168
+  s_f53c97bf22347e::t_fbdc79fe4c4eed 274
+  s_f53c97bf22347e::t_4710b55eb8afdd 350-352
+src/calibration_tracker.py
+  s_f53c97bf22347e::t_a6f0cf7d499a34 1-281
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3b00b5dd71e3575dab5940f71827a2cc574d02ce",
+  "prompts": {},
+  "sessions": {
+    "s_f53c97bf22347e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0fefb116-aaee-4a6e-bfc2-571526f6bfc1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
