@@ -158,6 +158,87 @@ track again rather than iterate further, given ~7 days left and two real IL atte
 underperforming every rule-based candidate. `submissions/il_agent_v3/` exists locally but is not
 and should not be submitted without a resolved diagnosis.
 
+## 2026-08-09 — fix-regression experiment (Arms C / B1 / B2)
+
+Two changes on this project were validated locally as clean, isolated and regression-free, and
+both scored materially *lower* on the ladder than the version they fixed:
+
+| pair | pre-fix | post-fix | delta |
+|---|---|---|---|
+| Archaludon `detect_matchup` None-guard | `55327510` **774.8** | `55330407` **711.4** | −63.4 |
+| Dragapult `Fezandipiti_ex` empty-bench | `55335494` **738.1** | `55336268` **688.0** | −50.1 |
+
+If the pattern is real, local validation cannot separate an improvement from a regression and
+every remaining change before 08-16 is a coin flip. If it is noise, we are sitting on two false
+alarms. Distinguishing the two requires the ladder's **between-submission noise floor**, which has
+never been measured here — only *within*-submission drift is known (`55327510` read 771.6 / 811.4
+/ 774.8 on identical code, a 40-point spread).
+
+Three arms, submitted within 25 seconds of each other so they share a field and an episode count
+at read time. Two slots held.
+
+| Ref | Date | Description | Status | μ |
+|---|---|---|---|---|
+| `55371582` | 2026-08-09 07:32 UTC | **Arm C — noise control.** Byte-identical re-upload of the tarball that produced `55330407` (sha256 `259ae8b0…`, untouched since 08-07 17:34 UTC). Zero code change. | PENDING | Compare against **711.4**. |
+| `55371585` | 2026-08-09 07:32 UTC | **Arm B1 — PLAY priority.** One line vs `55336268`: the empty-bench `Fezandipiti_ex` case gets PLAY priority 50500 (below Dreepy's 51000) instead of the fixed 53000; the `pre_ko` ability-timing case stays at 53000. | PENDING | Compare against **688.0** and **738.1**. |
+| `55371590` | 2026-08-09 07:32 UTC | **Arm B2 — gate value.** One line vs `55336268`, in a different place: `hand_score` empty-bench value 25000 → 3000. PLAY gate still opens; the three collateral consumers stop firing. | PENDING | Compare against **688.0** and **738.1**. |
+
+**Why two Dragapult arms rather than one dose-response sweep.** `hand_score` feeds four consumers
+with different semantics, and 25000 perturbs three of them:
+
+| consumer | how `hand_score` is used | effect of 0 → 25000 |
+|---|---|---|
+| `OptionType.PLAY` | **gate only** (`card_score > 0`); priority is a fixed 53000 | Fezandipiti_ex becomes playable at 53000 — above Dreepy's 51000 and Budew's 52000, so on an empty bench the agent benches a 2-prize ex ahead of its own evolution engine. |
+| `TO_BENCH` / `TO_HAND` | **priority directly** | 25000 outranks Dreepy's 18000 in bench-selection ordering. |
+| `DISCARD` | `-hand_score` | 25000 makes Fezandipiti_ex the last card ever discarded. |
+| `Night_Stretcher` gate | `card_score >= 18000` | 25000 crosses it, so Night_Stretcher now recovers a 2-prize ex. |
+
+A `1 / 15000 / 25000` sweep would have been void: at the PLAY gate all three values are identical
+(`> 0` → 53000). The dial only exists on the other three paths. Hence one arm per mechanism.
+
+B2's value is 3000 rather than 1 because `DISCARD` negates the score — at 1, Fezandipiti_ex would
+become one of the *first* cards discarded, a new regression. 3000 sits below Dreepy's 18000 and
+the Night_Stretcher threshold while staying above obvious discard fodder (same rank as a Drakloak
+with nothing to evolve from).
+
+With the two live arms this is a partial factorial with both main effects estimable:
+
+| arm | PLAY priority | `hand_score` value | status |
+|---|---|---|---|
+| `55335494` | never plays (gate closed) | 0 | live, 738.1 |
+| `55371585` (B1) | 50500 (below Dreepy) | 25000 | new |
+| `55371590` (B2) | 53000 | 3000 | new |
+| `55336268` | 53000 | 25000 | live, 688.0 |
+
+**Reachability was measured, not assumed** — the Archaludon guard was credited with a 63 μ swing
+despite firing in 0/29,064 sampled states, and repeating that mistake would make these arms
+unfalsifiable. Over 600 battles against four panel opponents, the `hand_score` empty-bench branch
+(B2's target) fires in **41.2%** of battles and the PLAY branch offers Fezandipiti_ex with an
+empty bench (B1's target) in **27.7%**. Both arms change real behavior.
+
+That measurement also sharpens the puzzle: the Dragapult fix alters behavior in ~41% of battles
+and moves local μ by 4.2, while the Archaludon fix alters behavior in 0% and "moved" the ladder
+63.4. The asymmetry is itself evidence the ladder deltas are noise-dominated.
+
+### Decision rules, written before the readings arrive
+
+Fixing these in advance so the verdict is not fitted to whatever number shows up. Take ≥2 readings
+≥24h apart per arm and ignore first readings (~08-11).
+
+| observation | conclusion | action |
+|---|---|---|
+| C settles within ~15 μ of 711.4 | noise floor is small; both −50/−63 gaps are real regressions | trust the B1/B2 ordering, adopt the winner, and treat every local-only validation from here as untrustworthy |
+| C settles 40+ μ from 711.4 | noise floor swamps both gaps | the "fixes made it worse" pattern is an artifact; stop acting on it, revert nothing, requeue the Dragapult track on its merits |
+| C settles 15–40 μ away | ambiguous | say so; weight B1/B2 by mechanism plausibility rather than by μ alone |
+
+This experiment cannot reach statistical significance — one control arm gives a single same-code
+delta, not a variance estimate. It can rule out "noise is tiny" or "the effect is real"; anything
+between those is ambiguous and will be reported as ambiguous.
+
+Afterwards, record all three arms via `src/calibration_tracker.py record` and re-run `report`.
+That adds up to 5 rows of *within-archetype small deltas*, the case where the n=5 calibration set
+currently has almost no power.
+
 ## Known constraints to keep in mind throughout
 
 - **Discussion mining is scriptable via the Kaggle CLI** (`kaggle competitions topics

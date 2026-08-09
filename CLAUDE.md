@@ -143,6 +143,15 @@ loss-tracing (`--save-losses`, `--repeats`), which `ladder_eval.py` does not dup
 
 Things that will otherwise be re-derived the hard way:
 
+- **The gate ranks candidates, not one-line tweaks within one archetype.** Retro-validated
+  2026-08-09 against the two pairs whose ladder answer was already known: frozen-panel μ separated
+  them by 4.2 and −12.4 μ where the ladder separated them by 50.1 and 63.4, i.e. "tie" both times,
+  and the sign was wrong on one. A mirror head-to-head (4000 battles) and pooled WR agree it is a
+  tie. Choose within-archetype changes by mechanism from reading the code, and settle them on the
+  ladder. Full writeup in `evaluation-methodology.md`'s "2026-08-09 retro-validation" section.
+- **Measure a branch's reachability before crediting or blaming it.** The Archaludon
+  `detect_matchup` guard was treated as a −63 μ regression while firing in 0/29,064 sampled
+  states. Instrument the branch and count the share of *battles* in which it fires at least once.
 - **Differences under ~25 μ are noise.** Two independent 24,000-game runs of the same candidate
   moved ~12 μ against a nominal σ of ~20.
 - **No seed control exists** — `libcg.so` self-seeds from `std::random_device` and exports no
@@ -163,6 +172,17 @@ frozen-panel μ correlates with settled ladder μ at ρ = +0.80 vs pooled WR's +
 CI is [+0.11, +1.00], and p = 0.133. **The frozen panel is better-founded, not yet demonstrably
 predictive.** Only a real submission settles a close call. Also note a hard ceiling on any
 panel-based metric: 44.3% of the real field's decks are <0.30 Jaccard-similar to *any* panel deck.
+
+## Open experiment: the fix-regression pattern (2026-08-09)
+
+Two locally-clean fixes each scored ~50-63 μ *below* the version they fixed. Three arms are live
+to find out whether that is real or noise, with decision rules written down before the readings
+(see `10-day-plan.md`'s "2026-08-09 — fix-regression experiment" section): `55371582` is a
+**byte-identical re-upload** of `55330407` measuring the ladder's between-submission noise floor —
+the first such measurement on this project, and without it no A/B here is interpretable —
+alongside `55371585` and `55371590`, two one-line Dragapult arms isolating the two mechanisms.
+Read at ~08-11, ≥2 readings ≥24h apart. **Do not spend slots on further one-line tweaks until the
+noise floor is known.**
 
 ## Current status (2026-08-08, see `10-day-plan.md` for live detail)
 

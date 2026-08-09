@@ -201,6 +201,47 @@ Repeatability, incidentally: two independent 24,000-game measurements of the sam
 gave aristophanivan 659.9 then 647.6, and biohack44 681.8 then 669.9 — ~12 μ of spread against a
 nominal σ of ~20. Differences smaller than about 25 μ should not be treated as real.
 
+## 2026-08-09 retro-validation: the harness cannot screen a within-archetype small delta
+
+`ladder_eval.py` did not exist when either of this project's two "clean local fix, worse ladder
+score" changes was validated, and it had never been checked on the *within-archetype small delta*
+case. Two pairs with known ladder answers were available for free (all submissions stay live on
+the ladder, so no slot is needed to reproduce a pre-fix arm). Pre-fix copies were rebuilt under a
+scratch directory — the Dragapult one by deleting the two added lines, the Archaludon one by
+reverting the guard and confirming it reproduces the original `TypeError` on a `None` active — and
+each pair was run through `ladder_eval.py compare`, which blocks both names out of the field so
+the two arms face an identical panel. 4000 games per opponent, panel `fa733a4e989a`.
+
+| pair | pre-fix local μ | post-fix local μ | local gap | ladder gap |
+|---|---:|---:|---:|---:|
+| Dragapult `Fezandipiti_ex` | 634.3 | 630.1 | **+4.2** (raw ahead) | +50.1 (raw ahead) |
+| Archaludon `detect_matchup` | 654.2 | 666.5 | **−12.4** (fixed ahead) | +63.4 (raw ahead) |
+
+**Neither pair is resolved.** Both gaps sit under the ~25 μ noise threshold established above, so
+the honest reading is that frozen-panel μ returns "tie" for two pairs the ladder separated by 50
+and 63. The Dragapult pair is direction-correct but attenuated ~12×; the Archaludon pair is
+direction-*inverted*. The harness did not confidently invert anything, but it has no power here.
+
+Two further measurements agree, which matters because they are not variations of the same test:
+
+- **Pooled win rate actively inverts the Dragapult pair** (raw 50.5% vs fixed 50.8%) where
+  frozen-panel μ gets the sign right. A small point in the frozen panel's favour, and against
+  pooled WR, on the one pair where the ladder's answer is least likely to be pure noise.
+- **A direct mirror head-to-head is a dead tie.** The panel contains neither variant's mirror, and
+  a prize-race regression could plausibly surface only there — it does not. Raw vs fixed over 4000
+  battles: 49.5% / 50.5%, 95% CI [48.0, 51.0].
+
+Read alongside the branch-reachability measurement (the Dragapult change alters behaviour in 41%
+of battles and moves local μ by 4.2; the Archaludon change alters behaviour in 0/29,064 sampled
+states and "moved" the ladder 63.4), the most economical explanation is that both ladder deltas
+are noise-dominated rather than that the harness is blind. But "most economical" is not measured,
+which is what the `55371582` noise-control arm is for.
+
+**Operational consequence:** do not expect `ladder_eval.py` to screen a one-line behavioural tweak
+inside a single archetype. It was built to rank *candidates*, and the calibration evidence for it
+(ρ = +0.80, n=5) is entirely across-archetype. For within-archetype deltas, choose changes by
+mechanism from reading the code, and settle them on the ladder.
+
 ## Calibration against the ladder (`calibration_tracker.py`)
 
 Eligible rows are candidates we actually submitted whose local directory still matches the
