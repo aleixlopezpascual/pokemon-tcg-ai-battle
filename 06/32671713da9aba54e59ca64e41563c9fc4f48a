@@ -1,0 +1,23 @@
+notebooks/kaggle-research/baseline-comparison.md
+  s_a515794992cd50::t_7e32737a430ac3 714-717,734-810
+notebooks/kaggle-research/evaluation-methodology.md
+  s_a515794992cd50::t_7e32737a430ac3 419-439
+notebooks/kaggle-research/10-day-plan.md
+  s_a515794992cd50::t_af8e31be7f23f8 387-388,390,397-411,416-419
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0632671713da9aba54e59ca64e41563c9fc4f48a",
+  "prompts": {},
+  "sessions": {
+    "s_a515794992cd50": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff8097f8-e689-4bad-be21-4c4b0aee00a6",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
