@@ -177,6 +177,16 @@ never been measured here — only *within*-submission drift is known (`55327510`
 Three arms, submitted within 25 seconds of each other so they share a field and an episode count
 at read time. Two slots held.
 
+> **Design error, caught the same day (2026-08-09).** Only the **two most recent submissions
+> actually keep receiving episodes** — a third does not add a third runner, it starves the oldest
+> of the three. So Arm C, uploaded first, never accumulated games and the noise-floor measurement
+> did not happen. The earlier justification ("all submissions stay live on the ladder", from
+> watching `55308975`/`55309000` keep moving) confused a *displayed* μ with an *accumulating* one.
+> The binding constraint on experiment design is **concurrency of 2**, not the 5-uploads/day
+> quota: every A/B is at most two arms wide, and multi-arm designs must run as sequential pairs.
+> B1 and B2 are the two that are actually live, which is still a valid head-to-head. The revised
+> plan for the noise floor is below.
+
 | Ref | Date | Description | Status | μ |
 |---|---|---|---|---|
 | `55371582` | 2026-08-09 07:32 UTC | **Arm C — noise control.** Byte-identical re-upload of the tarball that produced `55330407` (sha256 `259ae8b0…`, untouched since 08-07 17:34 UTC). Zero code change. | PENDING | Compare against **711.4**. |
@@ -231,9 +241,32 @@ Fixing these in advance so the verdict is not fitted to whatever number shows up
 | C settles 40+ μ from 711.4 | noise floor swamps both gaps | the "fixes made it worse" pattern is an artifact; stop acting on it, revert nothing, requeue the Dragapult track on its merits |
 | C settles 15–40 μ away | ambiguous | say so; weight B1/B2 by mechanism plausibility rather than by μ alone |
 
-This experiment cannot reach statistical significance — one control arm gives a single same-code
-delta, not a variance estimate. It can rule out "noise is tiny" or "the effect is real"; anything
-between those is ambiguous and will be reported as ambiguous.
+The C-vs-`55330407` comparison above is void, since C never ran. B1 vs B2 stands: both are live,
+both started within 6 seconds of each other, and both face the same field over the same window.
+
+### Revised noise-floor measurement: an identical *pair*, not an identical re-upload
+
+The concurrency limit turns out to enable a strictly better design than the one it broke. Arm C
+compared a re-upload against a reading taken weeks earlier, against a different field, over a
+different episode count — a noise measurement contaminated by every one of those. Uploading **two
+byte-identical tarballs back to back** puts both in the active pair, so they run simultaneously,
+against the same field, over the same window. Whatever μ separates them is between-submission
+noise with the time confound removed.
+
+Sequence, given that only two arms can run at once:
+
+1. **Now → ~08-11:** let B1 and B2 accumulate. Read both, ≥2 readings ≥24h apart.
+2. **Then:** upload the identical pair `C` / `C'` (2 slots, same minute). Their spread is the
+   noise floor.
+3. **Then:** re-run the winner of B1/B2 against whichever live arm it needs to beat.
+
+Note the cost this imposes on everything else: at concurrency 2, each round of any A/B costs
+~40h of latency and the whole field of comparison, so with the 08-16 deadline there is room for
+roughly three more rounds total. Arm choice matters much more than arm count.
+
+This experiment cannot reach statistical significance — even the identical pair gives a single
+same-code delta, not a variance estimate. It can rule out "noise is tiny" or "the effect is real";
+anything between those is ambiguous and will be reported as ambiguous.
 
 Afterwards, record all three arms via `src/calibration_tracker.py record` and re-run `report`.
 That adds up to 5 rows of *within-archetype small deltas*, the case where the n=5 calibration set

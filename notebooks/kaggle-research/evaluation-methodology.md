@@ -205,8 +205,8 @@ nominal σ of ~20. Differences smaller than about 25 μ should not be treated as
 
 `ladder_eval.py` did not exist when either of this project's two "clean local fix, worse ladder
 score" changes was validated, and it had never been checked on the *within-archetype small delta*
-case. Two pairs with known ladder answers were available for free (all submissions stay live on
-the ladder, so no slot is needed to reproduce a pre-fix arm). Pre-fix copies were rebuilt under a
+case. Two pairs with known ladder answers were available for free — the pre-fix arms were rated
+locally, so no submission slot was involved either way. Pre-fix copies were rebuilt under a
 scratch directory — the Dragapult one by deleting the two added lines, the Archaludon one by
 reverting the guard and confirming it reproduces the original `TypeError` on a `None` active — and
 each pair was run through `ladder_eval.py compare`, which blocks both names out of the field so

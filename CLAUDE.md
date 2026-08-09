@@ -25,6 +25,13 @@ findings — this file is about *how to work in this repo*, not what we've learn
   made after local midnight still consumed "08-07"'s quota because UTC hadn't rolled over yet.
   Check the CLI's actual "N submissions remaining" message, don't assume a fresh 5 just because
   the local calendar date changed.
+- **Only the 2 most recent submissions actually keep receiving episodes.** A third upload does not
+  add a third runner — it starves the oldest of the three, whose μ then freezes wherever it was.
+  Older submissions still *display* a μ on the leaderboard; that is not the same as accumulating
+  games, and confusing the two cost a whole experiment arm on 2026-08-09. So **concurrency of 2,
+  not the 5/day quota, is what limits experiment design**: every A/B is at most two arms wide, a
+  control must be one of the two, and multi-arm designs run as sequential pairs. Upload the arm
+  whose reading matters most *last*.
 - Only **2 Final Submissions** count for placement, and they must be **manually selected** on
   Kaggle — auto-select picks your latest two uploads, not your best two. Do this deliberately
   near the 08-16 deadline, not by accident.
@@ -177,12 +184,14 @@ panel-based metric: 44.3% of the real field's decks are <0.30 Jaccard-similar to
 
 Two locally-clean fixes each scored ~50-63 μ *below* the version they fixed. Three arms are live
 to find out whether that is real or noise, with decision rules written down before the readings
-(see `10-day-plan.md`'s "2026-08-09 — fix-regression experiment" section): `55371582` is a
-**byte-identical re-upload** of `55330407` measuring the ladder's between-submission noise floor —
-the first such measurement on this project, and without it no A/B here is interpretable —
-alongside `55371585` and `55371590`, two one-line Dragapult arms isolating the two mechanisms.
-Read at ~08-11, ≥2 readings ≥24h apart. **Do not spend slots on further one-line tweaks until the
-noise floor is known.**
+(see `10-day-plan.md`'s "2026-08-09 — fix-regression experiment" section). Three arms went up, but
+only two run at a time, so the noise-control arm `55371582` was starved and measured nothing. Live
+and valid: `55371585` and `55371590`, two one-line Dragapult arms isolating the two mechanisms,
+both started within 6 seconds of each other against the same field. Read at ~08-11, ≥2 readings
+≥24h apart. The noise floor is still unmeasured, and the revised design for it is **two
+byte-identical tarballs uploaded back to back** so they run as a simultaneous pair — better than
+the original re-upload, which would have compared against a weeks-old reading. **Do not spend
+slots on further one-line tweaks until the noise floor is known.**
 
 ## Current status (2026-08-08, see `10-day-plan.md` for live detail)
 
