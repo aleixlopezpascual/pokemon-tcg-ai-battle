@@ -1,0 +1,23 @@
+notebooks/kaggle-research/10-day-plan.md
+  s_a515794992cd50::t_2e07a67dfedbd5 440-506
+notebooks/kaggle-research/evaluation-methodology.md
+  s_a515794992cd50::t_031e096d52de50 554-606
+CLAUDE.md
+  s_a515794992cd50::t_031e096d52de50 190-237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "47d348e31bd0b93c641924b675db08e0d2b6473a",
+  "prompts": {},
+  "sessions": {
+    "s_a515794992cd50": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff8097f8-e689-4bad-be21-4c4b0aee00a6",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
