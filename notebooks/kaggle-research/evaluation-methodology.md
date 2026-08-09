@@ -104,3 +104,240 @@ overfitting (finding 3 above) is a documented, independently-reported failure mo
 first, not just bad luck. Similarly, djschmit's bo1-vs-bo-N stability experiment (finding 1)
 suggests our own per-matchup game count is worth revisiting if local rankings ever look noisy
 between comparable candidates — more games per matchup, not more candidates, may be the fix.
+
+---
+
+# The 2026-08-09 evaluation-harness rebuild
+
+Everything above is community research. This section is our own measurement, and it revises the
+"local eval inverts fine-grained rankings" claim that `CLAUDE.md` and `baseline-comparison.md`
+had both been treating as an irreducible property of local evaluation.
+
+Deliverables: `src/trueskill_lite.py`, `src/test_trueskill_lite.py`, `src/ladder_eval.py`,
+`src/calibration_tracker.py`, `src/adversarial_validation.py`.
+
+## Why `local_eval.py`'s pooled win rate is the wrong number
+
+Three defects, all measured rather than assumed.
+
+**1. Roster self-exclusion bias.** `src/local_eval.py:136` removes the candidate from its own
+opponent roster, so a roster member faces a strictly easier field than a non-member. Measured
+Archaludon-as-opponent strength (150 battles each):
+
+| Opponent faces Archaludon | wins |
+|---|---:|
+| `il_agent_v2b` | 7.3% |
+| `kiyota_dragapult_ex` | 19.3% |
+| `kiyota_mega_lucario_ex` | 27.3% |
+| `aristophanivan_probablity_v2` | 30.7% |
+| `biohack44_alakazam_dunsparce` | 62.0% |
+| `soutasakurai_libraryout_crustle` | 67.3% |
+
+Archaludon never plays that matchup when it is the candidate; everyone else does.
+
+**2. Sample size three orders of magnitude below what the hardware allows.** The default 30
+battles × 7 opponents = 210 games gives a Wilson half-width of ±6.6pp — useless for separating
+candidates a few points apart. Detecting a 3pp difference at 80% power needs ~4,200 games. There
+was never a compute constraint; see the throughput note below.
+
+**3. Pooled win rate is not the functional the ladder scores.** Kaggle reports TrueSkill
+N(μ, σ²), which is opponent-strength-weighted; a pooled average is not. With opponent ratings
+held fixed, a candidate's posterior μ is in expectation invariant to *which* subset of the panel
+it played, which fixes defect 1 structurally instead of patching it.
+
+## The frozen-panel gate (`ladder_eval.py`)
+
+Fit panel ratings once from a full round-robin, persist to
+`data/processed/panel_ratings.json`, and never refit them when rating a candidate. Current panel
+`fa733a4e989a`: 2,000 games/pair, 21 pairs, 42,000 battles, 278 s.
+
+| panel agent | μ |
+|---|---:|
+| `biohack44_alakazam_dunsparce` | 681.6 |
+| `soutasakurai_libraryout_crustle` | 674.7 |
+| `masamikobayashi_archaludon_cinderace` | 673.6 |
+| `aristophanivan_probablity_v2` | 653.4 |
+| `kiyota_mega_lucario_ex` | 584.4 |
+| `il_agent_v2b` | 528.5 |
+| `sample_submission` | 443.4 |
+
+σ is floored at 25.0 (`PANEL_SIGMA_FLOOR`): 6,000 games per panel member drives the nominal σ
+to a value that would make the panel absurdly overconfident about a fixed agent's true strength.
+
+All candidates at 4,000 games/opponent against that panel:
+
+| candidate | local μ | σ | pooled WR |
+|---|---:|---:|---:|
+| `masamikobayashi_archaludon_cinderace` | 689.9 | 20.1 | 67.7% |
+| `soutasakurai_libraryout_crustle` | 685.7 | 19.6 | 69.3% |
+| `biohack44_alakazam_dunsparce` | 669.9 | 19.9 | 70.0% |
+| `aristophanivan_probablity_v2` | 647.6 | 19.9 | 61.2% |
+| `kiyota_dragapult_ex` | 615.9 | 19.4 | 51.0% |
+| `kiyota_mega_lucario_ex` | 590.8 | 19.8 | 43.4% |
+| `il_agent_v2` | 565.2 | 19.8 | 40.0% |
+| `il_agent_v2b` | 532.2 | 20.5 | 29.2% |
+| `il_agent_v3` | 499.9 | 20.3 | 23.0% |
+| `il_agent_v1` | 446.0 | 21.6 | 20.9% |
+
+Note the μ/WR disagreement at the top: pooled WR ranks `biohack44` first (70.0%), μ ranks it
+third. Panel members play 6 opponents and non-members 7 — exactly the asymmetry defect 1
+describes, and exactly what μ is supposed to absorb.
+
+## The falsifiable prediction, and its failure
+
+The rebuild was justified by a specific, checkable claim, recorded before the measurement:
+under frozen-panel μ, `aristophanivan_probablity_v2` should rank **at or above**
+`masamikobayashi_archaludon_cinderace`, matching the real ladder (its author's badge reads 933.8
+against Archaludon's settled 711.4), where pooled WR ranked it below.
+
+**It did not.** Frozen-panel μ puts aristophanivan at 647.6, *42 points below* Archaludon's
+689.9 — the same direction pooled WR had it, only wider. The self-exclusion correction was real
+and worth making, but it does not explain this particular inversion, and the diagnosis that it
+would was wrong. Two caveats that do not rescue it: the 933.8 figure is the notebook author's
+self-reported badge, not one of our own submissions, so it is not on the same measuring stick as
+the rest of the calibration set; and we have never submitted this agent ourselves.
+
+Repeatability, incidentally: two independent 24,000-game measurements of the same candidates
+gave aristophanivan 659.9 then 647.6, and biohack44 681.8 then 669.9 — ~12 μ of spread against a
+nominal σ of ~20. Differences smaller than about 25 μ should not be treated as real.
+
+## Calibration against the ladder (`calibration_tracker.py`)
+
+Eligible rows are candidates we actually submitted whose local directory still matches the
+submitted code, with a settled ladder μ (≥2 readings). That is n=5.
+
+| candidate | local μ | pooled WR | ladder μ | ref |
+|---|---:|---:|---:|---:|
+| `masamikobayashi_archaludon_cinderace` | 689.9 | 67.7% | 711.4 | 55330407 |
+| `kiyota_dragapult_ex` | 615.9 | 51.0% | 698.5 | 55336268 |
+| `soutasakurai_libraryout_crustle` | 685.7 | 69.3% | 553.8 | 55308334 |
+| `il_agent_v2` | 565.2 | 40.0% | 538.7 | 55325282 |
+| `kiyota_mega_lucario_ex` | 590.8 | 43.4% | 490.8 | 55307583 |
+
+Spearman ρ against settled ladder μ:
+
+- `local_mu` **+0.800**, 95% CI [+0.111, +1.000], exact permutation p = 0.133
+- `pooled_wr` **+0.600**, 95% CI [−1.000, +1.000], exact permutation p = 0.350
+
+Frozen-panel μ ranks better than pooled WR by +0.200 ρ, but **neither is significant and the
+difference is not either**. At n=5 the smallest attainable two-sided p is 0.017, reachable only
+by a perfect rank match, so no result at this n can clear 0.05 without being perfect. The CI is
+the honest summary. Crustle is the standout miss in both metrics: 2nd locally, 2nd-from-bottom on
+the ladder.
+
+The previous calibration table in `baseline-comparison.md` cannot be compared against this one —
+its rows were measured against 4-, 5- and 7-agent rosters, i.e. three different measuring sticks.
+`calibration_tracker.py` therefore requires `panel_version` and *excludes* rows from other panels
+rather than mixing them.
+
+## Adversarial validation
+
+### IL covariate shift: hypothesis tested, not supported
+
+The strongest untested explanation for IL underperforming twice was imitation-learning covariate
+shift — training on logged episodes, then acting on states from its own trajectory. Neither the
+v2 nor the v3 post-mortem tested it; both retried with more data and features in the same shape.
+
+Harvested 87,110 decision records from `il_agent_v2b` self-play against the frozen panel and
+classified them against the v2-era training corpus (`il_records_combined.jsonl`), GroupKFold on
+`episode_id`.
+
+- IL vs training corpus: **ROC-AUC 0.9786**
+- Label-shuffle control: **0.5006** (pipeline is clean)
+- **Non-IL control** — `masamikobayashi_archaludon_cinderace` harvested against the *identical*
+  panel, classified against the same corpus: **ROC-AUC 0.9978**
+
+The control is *more* separable than the IL agent. Harvested states differ from the corpus for
+three reasons at once — the agent's own trajectory (the hypothesis), the opponents (6-agent local
+panel vs the real ladder field), and harvesting mechanics (the corpus logs both players, the dump
+logs one side). Since a non-IL agent scores higher on the same test, the separation is driven by
+the latter two. **IL-specific covariate shift is not supported, and DAgger does not follow.** The
+raw 0.9786 read on its own would have said the opposite; `--control` is now part of the mode for
+that reason, and running without it prints a warning instead of a recommendation.
+
+Two feature-level artifacts had to be removed before any of this was meaningful.
+`actor_score_norm` and `opp_score_norm` derive from a leaderboard join that harvested states
+never have, so they are constant on one side by construction and are dropped
+(`PROVENANCE_COLUMNS`). And `ladder_eval.py`'s dumped `episode_id` originally collided across
+opponents — a worker's chunk offset restarts at 0 per opponent — which would have merged distinct
+episodes into one GroupKFold group and leaked across folds; the opponent name is now part of the
+id.
+
+The one substantive distributional difference found, which stands independently of the
+attribution question: self-play games run much longer in the tail than the training corpus
+(turn p95 = 29 vs 15, max 57 vs 44). Whatever is producing that is worth understanding on its own
+terms.
+
+### Roster representativeness: a real ceiling
+
+Compared each of 598 real decks (299 episodes, read from `steps[0][0].visualize[0].action`)
+against the panel by Jaccard similarity to its nearest panel deck.
+
+Median 0.321, p10 0.179, p90 1.000. **44.3% of the real field is less than 0.30 similar to any
+panel deck; 55.4% is below 0.50.** Nearest-panel shares: `il_agent_v2b` 38.1%, `biohack44` 27.1%,
+`archaludon` 16.7%, `crustle` 13.7%, `lucario` 4.3%; `aristophanivan` and `sample_submission`
+match nothing. This is a ceiling on how well *any* local metric computed against this panel can
+predict the ladder, and it is independent of the estimator — worth more than further estimator
+work if local-vs-ladder agreement needs improving.
+
+(An earlier version of this metric counted how many field-card occurrences each panel deck
+contained and reported full coverage of the top 20 cards. That was misleading: every deck runs
+the same staple trainers, so the metric rewarded holding staples rather than resembling whole
+decks. Jaccard-to-nearest replaced it.)
+
+## Two harness bugs found while doing this
+
+**Module-name collisions across submissions.** `il_agent_v1`, `v2`, `v2b` and `v3` each ship their
+own `il_features.py`, and each `main.py` does `sys.path.insert(0, <own dir>)` then
+`import il_features`. Python caches by module name, so in a long-lived process the first agent to
+load wins and every later agent silently gets someone else's helper. Kaggle never sees this — one
+agent per process — but this harness loads seven into one worker. It surfaced as
+`AttributeError: module 'il_features' has no attribute 'load_card_attrs'` when rating
+`il_agent_v2` against a panel containing `il_agent_v2b`, which was the lucky case: an earlier
+`il_agent_v1` run had already *completed* under a shadowed helper and produced a plausible-looking
+rating that was simply wrong. Fixed in `ladder_eval._load_agent_isolated`, which snapshots
+`sys.path`/`sys.modules` around the exec and evicts modules loaded from the agent's own directory
+afterwards. Shared third-party modules stay cached. Deferred imports inside agent code were
+checked and are all stdlib or `cg.api`, which is on the path before any agent loads.
+
+**BLAS thread oversubscription, the dominant performance bug.** `il_agent_v2b` is the
+sklearn/numpy variant of the IL agent, so having it on the panel pulls a threaded BLAS into every
+worker. Measured: one battle against it cost 0.45 s wall and **24.3 s CPU** across ~6.5 threads,
+because the BLAS pool was thrashing on matrices far too small to parallelise. With N worker
+processes each spawning its own pool, an 8-worker panel fit burned 343 s of system time and ran
+**2.8× slower than serial**. Pinning `OMP_NUM_THREADS` and its four siblings to 1 at
+`ladder_eval.py` module top — before anything imports numpy, since BLAS reads them once at
+library load — took the same battle to 0.075 s wall and 0.075 s CPU (**54× less CPU, 6× less wall
+clock**) and turned 8 workers from 2.8× slower than serial into 4.7× faster. Throughput is now
+112–151 battles/sec at 8 workers; 10 workers adds nothing.
+
+## Constraints and limits worth not re-deriving
+
+- **No seed control exists.** `cg/libcg.so` exports `GameInitialize / BattleStart / Select /
+  GetBattleData / BattleFinish / VisualizeData / Search*` and nothing for seeding; it links
+  `std::random_device` and `mersenne_twister_engine`, i.e. it self-seeds from OS entropy. Common
+  Random Numbers and paired-shuffle variance reduction are therefore **impossible**. Sample size
+  and blocking on the opponent panel are the only levers. Keep the alternating first-player
+  balancing in `run_battle.py:66`.
+- **Workers must be processes, not threads.** The engine is a ctypes singleton with a
+  process-global `Battle.battle_ptr` (`cg/sim.py`).
+- **There are no draws.** `cg/api.py:376` reports `result` as a winning player index, and all 299
+  real episodes confirm it empirically: reward pairs are (−1,1) ×153 and (1,−1) ×146, zero draws.
+  `trueskill_lite` is no-draw for that reason and deliberately does not match the `trueskill` pip
+  package's defaults (which assume a 10% draw probability).
+- **Validation performed**: hand-derived TrueSkill update reproduced to 1e-12; synthetic ladders
+  recover known win probabilities and rank order; 8 unit tests pass
+  (`python3 src/test_trueskill_lite.py`). Parallel == serial checked on `kiyota_dragapult_ex` at
+  600 games/opponent: μ 592.1 (1 worker) vs 597.2 (8 workers), inside σ=19.6, all per-opponent
+  Wilson CIs overlapping. The Spearman implementation matches scipy to 16 significant digits.
+
+## What this changes about the workflow
+
+`ladder_eval.py` is the ranking gate; `local_eval.py`'s pooled number is superseded for ranking
+and kept for its loss-tracing features (`--save-losses`, `--repeats`), which are genuinely useful
+and not duplicated. Differences under ~25 μ are noise. And the honest headline: this removed a
+real bias, raised precision ~10×, and switched to the metric the competition actually scores, but
+it did **not** demonstrate that local evaluation now predicts the ladder — n=5, ρ=+0.80,
+p=0.133, and the falsifiable prediction that motivated the work failed. The largest real score
+movement so far still came from a correctness bug fix (+128 μ from the `random.sample` clip), not
+from better measurement.

@@ -94,7 +94,11 @@ known, common community gotcha, not a one-off bug.
   - `evaluation-methodology.md` — how local win-rate evaluation is designed and calibrated.
   - `prioritization-matrix.md` — candidate/task prioritization scoring.
 - `src/` — reusable scripts: `fetch_kaggle_kernels.py` (list/pull public kernels),
-  `local_eval.py` (multi-opponent local win-rate harness, see calibration caveat below).
+  `ladder_eval.py` (frozen-panel TrueSkill rating — **the ranking gate**),
+  `trueskill_lite.py` + `test_trueskill_lite.py` (stdlib no-draw TrueSkill and its tests),
+  `calibration_tracker.py` (local μ vs settled ladder μ, Spearman with bootstrap CI),
+  `adversarial_validation.py` (IL covariate-shift test and panel-representativeness),
+  `local_eval.py` (older pooled win-rate harness, superseded for ranking — see below).
 - `submissions/<name>/` — one directory per candidate agent (gitignored — third-party-derived
   code and compiled engine binaries, not ours to commit). Each has `main.py`, `deck.csv`, and
   (after packaging) `submission.tar.gz`.
@@ -116,18 +120,49 @@ CLI's `topics` subcommand works and is authenticated/structured**:
   **not** return the original post body, only comments (usually enough to reconstruct it).
 - Rate-limits (`429`) on bulk pulls — retry with backoff, don't treat one as unavailable.
 
-## Local evaluation — what it can and can't tell you
+## Local evaluation — `ladder_eval.py` is the gate, `local_eval.py` is not
 
-`python src/local_eval.py --candidate submissions/<name>` pools win rate across a fixed 7-agent
-roster (random baseline + rule-based submissions `kiyota_mega_lucario_ex`,
-`masamikobayashi_archaludon_cinderace`, `soutasakurai_libraryout_crustle` + imitation-learning
-agent `il_agent_v2b` + newer candidates `aristophanivan_probablity_v2`,
-`biohack44_alakazam_dunsparce`) with Wilson 95% confidence intervals.
-**Calibrated against real ladder scores and found to correctly flag obviously-weak candidates,
-but it inverts fine-grained rankings between comparable-strength ones** (see
-`baseline-comparison.md`'s calibration table). Use it as a pre-submission sanity gate, not a
-way to pick a winner between two candidates that both look decent locally — only a real
-submission answers that with confidence here.
+**Rank candidates with `src/ladder_eval.py`, not `src/local_eval.py`.** Full derivation and every
+measurement behind this is in `notebooks/kaggle-research/evaluation-methodology.md`'s
+"2026-08-09 evaluation-harness rebuild" section; the operational summary:
+
+```bash
+python3 src/ladder_eval.py rate --candidate submissions/<name> --games 4000 --workers 8 \
+    --json data/processed/ratings/<name>.json
+```
+
+It rates the candidate against a **frozen** 7-agent panel (`data/processed/panel_ratings.json`,
+current version `fa733a4e989a`) using a pure-Python no-draw TrueSkill (`src/trueskill_lite.py`)
+with Kaggle's parameterization, and reports local μ plus per-opponent Wilson CIs. Panel ratings
+are fit once and **never refit** when evaluating a candidate — that is what makes μ comparable
+across candidates, and what fixes `local_eval.py:136`'s self-exclusion bias (it drops the
+candidate from its own roster, so roster members face an easier field than non-members).
+
+`local_eval.py`'s pooled win rate is superseded **for ranking**. Keep using it for its
+loss-tracing (`--save-losses`, `--repeats`), which `ladder_eval.py` does not duplicate.
+
+Things that will otherwise be re-derived the hard way:
+
+- **Differences under ~25 μ are noise.** Two independent 24,000-game runs of the same candidate
+  moved ~12 μ against a nominal σ of ~20.
+- **No seed control exists** — `libcg.so` self-seeds from `std::random_device` and exports no
+  seeding entry point, so Common Random Numbers is impossible. Sample size is the only lever.
+- **Workers must be processes, not threads** — the engine is a ctypes singleton with a
+  process-global `Battle.battle_ptr`.
+- **`ladder_eval.py` pins `OMP_NUM_THREADS` and friends to 1 at module top, before numpy is
+  imported.** Do not move or remove this. `il_agent_v2b` pulls in a threaded BLAS, and
+  unpinned it cost 24.3 s CPU per battle (54× more than pinned) and made 8 workers run 2.8×
+  *slower* than serial.
+- **Agents can shadow each other's helper modules.** Four IL submissions each ship their own
+  `il_features.py`; in one process the first to load wins `sys.modules` and later agents silently
+  get the wrong helper. `ladder_eval._load_agent_isolated` handles it. If you write a new harness
+  that loads multiple `main.py` files into one process, you need the same guard.
+
+Calibration against the real ladder (`src/calibration_tracker.py`, `data/processed/calibration.csv`):
+frozen-panel μ correlates with settled ladder μ at ρ = +0.80 vs pooled WR's +0.60 — but n=5, the
+CI is [+0.11, +1.00], and p = 0.133. **The frozen panel is better-founded, not yet demonstrably
+predictive.** Only a real submission settles a close call. Also note a hard ceiling on any
+panel-based metric: 44.3% of the real field's decks are <0.30 Jaccard-similar to *any* panel deck.
 
 ## Current status (2026-08-08, see `10-day-plan.md` for live detail)
 
@@ -146,6 +181,14 @@ stop iterating on IL for now — see `baseline-comparison.md`'s "IL agent v3" se
 diagnosis. This is the second time IL has underperformed rule-based here; treat any future IL
 pitch with real skepticism unless it comes with a concrete, verified fix for *why* the last two
 attempts underperformed, not just more data/features in the same shape.
+
+The strongest remaining hypothesis — imitation-learning covariate shift — was tested on 2026-08-09
+and **is not supported**. `adversarial_validation.py --mode il` separates IL self-play states from
+the training corpus at AUC 0.979, but a *non-IL* control agent harvested against the identical
+panel separates at 0.998 — higher. The separation is the local panel differing from the real
+ladder field, not the IL policy's own trajectory, so DAgger does not follow from it. Every
+frozen-panel μ also puts all four IL variants below every rule-based candidate (v2 565.2, v2b
+532.2, v3 499.9, v1 446.0, vs Archaludon 689.9).
 
 Two more candidates audited and added to the local-eval roster but **not submitted** —
 `aristophanivan_probablity_v2` (real badge 933.8, local pooled 59.7%) and
