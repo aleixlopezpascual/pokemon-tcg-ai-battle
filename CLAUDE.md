@@ -187,8 +187,11 @@ to find out whether that is real or noise, with decision rules written down befo
 (see `10-day-plan.md`'s "2026-08-09 — fix-regression experiment" section). Three arms went up, but
 only two run at a time, so the noise-control arm `55371582` was starved and measured nothing. Live
 and valid: `55371585` and `55371590`, two one-line Dragapult arms isolating the two mechanisms,
-both started within 6 seconds of each other against the same field. Read at ~08-11, ≥2 readings
-≥24h apart. The noise floor is still unmeasured, and the revised design for it is **two
+both started within 6 seconds of each other against the same field. First readings at 6.5h (not
+settled, do not act on them): B1 665.6, B2 557.5, and C exactly 600.0 — μ0, confirming it played
+zero episodes. The B1−B2 gap of 108 μ points the opposite way to the hypothesis, i.e. the
+collateral `hand_score` consumers B2 removed appear to have been helping. Read again at ~08-11,
+≥2 readings ≥24h apart. The noise floor is still unmeasured, and the revised design for it is **two
 byte-identical tarballs uploaded back to back** so they run as a simultaneous pair — better than
 the original re-upload, which would have compared against a weeks-old reading. **Do not spend
 slots on further one-line tweaks until the noise floor is known.**

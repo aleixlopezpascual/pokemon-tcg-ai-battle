@@ -189,9 +189,32 @@ at read time. Two slots held.
 
 | Ref | Date | Description | Status | μ |
 |---|---|---|---|---|
-| `55371582` | 2026-08-09 07:32 UTC | **Arm C — noise control.** Byte-identical re-upload of the tarball that produced `55330407` (sha256 `259ae8b0…`, untouched since 08-07 17:34 UTC). Zero code change. | PENDING | Compare against **711.4**. |
-| `55371585` | 2026-08-09 07:32 UTC | **Arm B1 — PLAY priority.** One line vs `55336268`: the empty-bench `Fezandipiti_ex` case gets PLAY priority 50500 (below Dreepy's 51000) instead of the fixed 53000; the `pre_ko` ability-timing case stays at 53000. | PENDING | Compare against **688.0** and **738.1**. |
-| `55371590` | 2026-08-09 07:32 UTC | **Arm B2 — gate value.** One line vs `55336268`, in a different place: `hand_score` empty-bench value 25000 → 3000. PLAY gate still opens; the three collateral consumers stop firing. | PENDING | Compare against **688.0** and **738.1**. |
+| `55371582` | 2026-08-09 07:32 UTC | **Arm C — noise control.** Byte-identical re-upload of the tarball that produced `55330407` (sha256 `259ae8b0…`, untouched since 08-07 17:34 UTC). Zero code change. | **VOID** | Reads **600.0** at 14:04 UTC — exactly μ0, the default prior. It played zero episodes, starved by B1/B2 within the same minute. Measures nothing. |
+| `55371585` | 2026-08-09 07:32 UTC | **Arm B1 — PLAY priority.** One line vs `55336268`: the empty-bench `Fezandipiti_ex` case gets PLAY priority 50500 (below Dreepy's 51000) instead of the fixed 53000; the `pre_ko` ability-timing case stays at 53000. | LIVE | **665.6** (1st reading, 6.5h). Not settled — ignore per the ≥2-readings rule. |
+| `55371590` | 2026-08-09 07:32 UTC | **Arm B2 — gate value.** One line vs `55336268`, in a different place: `hand_score` empty-bench value 25000 → 3000. PLAY gate still opens; the three collateral consumers stop firing. | LIVE | **557.5** (1st reading, 6.5h). Not settled. |
+
+### First readings (2026-08-09 14:04 UTC, 6.5h in) — provisional
+
+Both arms are 6.5h old and started from μ0 = 600, so the absolute numbers are not yet meaningful:
+`55335494` read 703.5 at ~24h and 743.1 at ~32h, i.e. this ladder is still climbing well past this
+point. Neither can be compared against `55336268`'s 688.0 either — that figure is *frozen*, since
+`55336268` was displaced out of the active pair this morning and no longer accumulates episodes.
+
+What the design does protect is the **B1 − B2 contrast**: 12 seconds apart, same field, same
+window, same episode count. That gap is **108 μ in B1's favour**, and its direction contradicts
+the hypothesis the arms were built to test.
+
+B2 removed the three collateral `hand_score` consumers (the `TO_BENCH` priority over Dreepy, the
+never-discard effect, and the `Night_Stretcher >= 18000` trip). If those were the damage, B2 should
+have gained. It sits 108 μ below B1 and 42 μ below its own prior. Provisional reading: **those
+consumers were helping, not hurting** — most plausibly Night_Stretcher recovering Fezandipiti_ex is
+worth more than benching it costs. If that survives two settled readings, B2 is out and B1 is the
+surviving Dragapult candidate.
+
+Held to honestly: with the noise floor still unmeasured, 108 μ *looks* decisive but cannot be
+called decisive. Within-submission drift on identical code has already been seen at 40 μ
+(`55327510`: 771.6 / 811.4 / 774.8). The identical C/C' pair remains the measurement that unlocks
+interpreting any of this.
 
 **Why two Dragapult arms rather than one dose-response sweep.** `hand_score` feeds four consumers
 with different semantics, and 25000 perturbs three of them:
