@@ -1,0 +1,30 @@
+notebooks/kaggle-research/baseline-comparison.md
+  s_a515794992cd50::t_9c03b9d7529e38 811-832
+src/test_trueskill_lite.py
+  s_a515794992cd50::t_74dd0feb77acc8 20,223-292,303-306
+src/trueskill_lite.py
+  s_a515794992cd50::t_8ab60a0c21eefb 158-237
+CLAUDE.md
+  s_a515794992cd50::t_df5f2aa5616241 162-170
+notebooks/kaggle-research/evaluation-methodology.md
+  s_a515794992cd50::t_df5f2aa5616241 204-207,444-553
+src/ladder_eval.py
+  s_a515794992cd50::t_a8a2f3e6481627 77
+  s_a515794992cd50::t_6b8fd4da55cbf0 445-449
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "18e723a788484d45e6b203b61c1c01ed79b19866",
+  "prompts": {},
+  "sessions": {
+    "s_a515794992cd50": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff8097f8-e689-4bad-be21-4c4b0aee00a6",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
