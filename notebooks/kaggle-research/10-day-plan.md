@@ -602,3 +602,67 @@ confirmed, structural defect in the rollout opponent model (G1d) that would supp
 off-mirror `override_share` signal regardless of whether real headroom exists, which is itself a
 plausible explanation for why G1b's proxy came back negative. This task does not decide whether to
 continue past this gate; that call is left to whoever reads this section next.
+
+### 2026-08-11 — intent-PIMC iteration gate (pre-registered)
+
+Baselines, Archaludon base at n=4000 per opponent
+(`data/processed/ratings/masamikobayashi_archaludon_cinderace.json`):
+Crustle 33.5%, Alakazam 42.1%, mirror 50.0% by symmetry; three-matchup pooled 41.9%.
+
+Pass requires all three:
+1. Pooled win rate across the three matchups >= 47.0% (i.e. >= +5pp; Wilson half-width at
+   n=3000 is +-1.8pp).
+2. No single matchup regresses by more than 5pp against its baseline.
+3. `stats.game_capped == 0` and `stats.errors` per game no worse than the Task 4 baseline.
+
+Failing 1 or 2 sends the work back to Task 8 (re-pick intents) or Task 7 (opponent model), not to
+the ladder. Failing 3 is a budget bug, fix and re-run.
+
+**Reading (2026-08-11):** `PTCG_SEARCH_PROFILE=fast python3 src/ladder_eval.py rate --candidate
+submissions/archaludon_intent --panel submissions/soutasakurai_libraryout_crustle
+submissions/biohack44_alakazam_dunsparce submissions/masamikobayashi_archaludon_cinderace --games
+1000 --workers 8 --json data/processed/ratings/archaludon_intent_gate3.json`, 3000 games total
+(1000/opponent), panel version `fa733a4e989a`:
+
+| opponent | wins/games | win% | 95% Wilson CI | baseline | delta |
+|---|---|---|---|---|---|
+| `soutasakurai_libraryout_crustle` | 336/1000 | 33.6% | [30.7, 36.6] | 33.5% | +0.1pp |
+| `biohack44_alakazam_dunsparce` | 428/1000 | 42.8% | [39.8, 45.9] | 42.1% | +0.7pp |
+| `masamikobayashi_archaludon_cinderace` (mirror) | 493/1000 | 49.3% | [46.2, 52.4] | 50.0% | −0.7pp |
+| **pooled (three matchups)** | 1257/3000 | **41.9%** | [40.1, 43.7] | 41.9% | **+0.0pp** |
+
+Battle-level errors (`err` column, battles that failed to start): 0/1000 in every matchup. Local μ
+over this three-member field is 617.9 (σ 19.2) — per the brief's own note, not comparable to the
+seven-member panel numbers elsewhere in this file, and not used for the verdict below.
+
+`stats.game_capped` caveat: `ladder_eval.py rate` (the exact Step 2 command) only tracks
+battle-start failures (the `err` column above, 0 in all three matchups) — it does not surface
+`archaludon_intent/main.py`'s internal `_search_stats` counters (`game_capped`, `calls`, etc.),
+which Task 4 read via a separate, ad hoc in-process script. Rule 3 below is judged on the
+evidence this harness actually produces (battle-level errors), not a re-measurement of the
+internal counter.
+
+**Verdict:**
+
+1. **Pooled win rate >= 47.0%: FAIL.** Actual pooled rate is 41.9%, identical (to one decimal) to
+   the 41.9% pre-registered baseline — +0.0pp, not the required +5pp (>=47.0%). The 95% CI
+   [40.1, 43.7] doesn't even approach the threshold.
+2. **No single matchup regresses by more than 5pp: PASS.** Crustle and Alakazam both improved
+   slightly (+0.1pp, +0.7pp); the mirror regressed by only 0.7pp (50.0% -> 49.3%), well inside the
+   5pp budget.
+3. **`stats.game_capped == 0` and errors no worse than Task 4 baseline: PASS on available
+   evidence.** Battle-level errors are 0/1000 in every matchup, matching Task 4's baseline
+   (`errors: 0` in all three of its JSONs). `stats.game_capped` itself was not independently
+   re-measured by this harness (see caveat above); no contrary evidence exists.
+
+**Overall: FAIL — rule 1 fails.** Per the pre-registered rule, this sends the work back to
+**Task 8 (re-pick intents) or Task 7 (opponent model)**, not to the ladder — a submission slot
+should not be spent on `archaludon_intent` as-is. The three-matchup performance is
+statistically indistinguishable from the unmodified rule-based Archaludon baseline it was meant
+to improve on: the new PIMC/intent search layer produced no net gain here. Task 4's own G1d
+finding (`score_attach` structurally cannot score an ATTACH above `END` for any archetype other
+than the mirror, because no non-mirror `_ARCHETYPE_DECKS` entry contains `METAL_ENERGY`) is a
+still-open, confirmed defect in the rollout opponent model that would suppress exactly the kind
+of off-mirror gain rule 1 was checking for — making **Task 7 (opponent model)** the more directly
+implicated of the two return destinations, though the brief does not force a single choice
+between 8 and 7.
