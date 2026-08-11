@@ -1,0 +1,19 @@
+src/test_search_layer.py
+  s_65d71ceaf24a54::t_94cf6403a7c92b 237-250,262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e3a13d623bf35d599b67781ff0f6f8fa10e6b5bf",
+  "prompts": {},
+  "sessions": {
+    "s_65d71ceaf24a54": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "30f14ed8-8050-4564-940e-70c82e555e7c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
