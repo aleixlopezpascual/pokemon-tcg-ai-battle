@@ -155,6 +155,51 @@ def test_shared_determinization(m):
                 len(d["opponent_prize"])) for d in draws}) == 1)
 
 
+def test_generic_policy_attaches_energy(m):
+    """The rollout opponent must be able to attach non-Metal energy.
+
+    score_attach returns (-500, "skip non-Metal") for every card id other than METAL_ENERGY=8,
+    and END scores 0, so the Archaludon policy models every non-Metal opponent as a player who
+    never powers up. That makes non-mirror rollouts unwinnable for the opponent and destroys
+    PIMC's discrimination.
+    """
+    check("generic scorer exists", hasattr(m, "_generic_score_option"))
+    check("generic chooser exists", hasattr(m, "_generic_choose_options"))
+    if not hasattr(m, "_generic_score_option"):
+        return
+
+    class _Opt:
+        def __init__(self, **kw):
+            self.type = kw.get("type")
+            self.attackId = kw.get("attackId")
+            self.number = kw.get("number")
+            self.inPlayArea = kw.get("inPlayArea")
+            self.cardId = kw.get("cardId")
+
+    class _Sel:
+        context = m.SelectContext.MAIN
+        minCount = 1
+        maxCount = 1
+        option = []
+
+    class _Cur:
+        energyAttached = False
+
+    class _Obs:
+        select = _Sel()
+        current = _Cur()
+
+    obs = _Obs()
+    attach_score, _ = m._generic_score_option(obs, _Opt(type=m.OptionType.ATTACH))
+    end_score, _ = m._generic_score_option(obs, _Opt(type=m.OptionType.END))
+    check("generic policy prefers attaching energy over ending the turn",
+          attach_score > end_score, f"attach {attach_score} vs end {end_score}")
+
+    evolve_score, _ = m._generic_score_option(obs, _Opt(type=m.OptionType.EVOLVE))
+    check("generic policy prefers evolving over ending the turn",
+          evolve_score > end_score, f"evolve {evolve_score} vs end {end_score}")
+
+
 def main():
     m = _load_candidate()
     if m is None:
@@ -164,6 +209,7 @@ def main():
         test_classify_returns_name(m)
         test_rank_options(m)
         test_shared_determinization(m)
+        test_generic_policy_attaches_energy(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
