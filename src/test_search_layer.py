@@ -234,6 +234,20 @@ def test_intents(m):
               "every intent picked the same option in every sampled state")
 
 
+def test_turn_commitment(m):
+    check("_committed state exists", hasattr(m, "_committed"))
+    if not hasattr(m, "_committed"):
+        return
+    check("_committed tracks turn and intent",
+          set(m._committed) >= {"turn", "intent"}, f"got {sorted(m._committed)}")
+    check("_committed defaults to the base intent",
+          m._committed["intent"] in m.INTENTS, f"got {m._committed['intent']!r}")
+    check("agent() resets the commitment on the deck call",
+          "_committed" in m.agent.__code__.co_names
+          or "_reset_game_state" in m.agent.__code__.co_names,
+          "agent() must clear per-game state including _committed")
+
+
 def main():
     m = _load_candidate()
     if m is None:
@@ -245,6 +259,7 @@ def main():
         test_shared_determinization(m)
         test_generic_policy_attaches_energy(m)
         test_intents(m)
+        test_turn_commitment(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
