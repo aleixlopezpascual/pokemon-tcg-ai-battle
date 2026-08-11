@@ -39,3 +39,22 @@ def predict_proba_one(bundle: dict, feature_row: list) -> float:
 
 def predict_proba_batch(bundle: dict, feature_rows: list) -> list:
     return [predict_proba_one(bundle, row) for row in feature_rows]
+
+
+def predict_multiclass_one(bundle: dict, feature_row: list) -> list:
+    """Returns class probabilities in the order of bundle['classes']. mode must be 'multiclass'."""
+    raw = list(bundle["baseline"])
+    for k, trees in enumerate(bundle["trees_per_class"]):
+        for tree in trees:
+            raw[k] += _tree_predict(tree, feature_row)
+    m = max(raw)
+    exps = [math.exp(r - m) for r in raw]
+    total = sum(exps)
+    return [e / total for e in exps]
+
+
+def predict_one(bundle: dict, feature_row: list):
+    """Dispatch on bundle['mode']. Absent mode (older exports) is treated as binary."""
+    if bundle.get("mode") == "multiclass":
+        return predict_multiclass_one(bundle, feature_row)
+    return predict_proba_one(bundle, feature_row)

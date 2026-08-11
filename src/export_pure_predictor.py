@@ -26,35 +26,56 @@ def export_model(model_path: str, out_path: str, threshold: float = 0.5):
     model = bundle["model"]
     feature_columns = bundle["feature_columns"]
 
-    trees = []
-    for stage in model._predictors:
-        tree = stage[0]  # binary classification: one tree per boosting iteration
+    def dump_tree(tree):
         nodes = []
         for node in tree.nodes:
-            nodes.append(
-                [
-                    int(node["feature_idx"]),
-                    float(node["num_threshold"]),
-                    int(node["missing_go_to_left"]),
-                    int(node["left"]),
-                    int(node["right"]),
-                    int(node["is_leaf"]),
-                    float(node["value"]),
-                ]
-            )
-        trees.append(nodes)
+            nodes.append([
+                int(node["feature_idx"]), float(node["num_threshold"]),
+                int(node["missing_go_to_left"]), int(node["left"]), int(node["right"]),
+                int(node["is_leaf"]), float(node["value"]),
+            ])
+        return nodes
 
-    baseline = float(model._baseline_prediction.reshape(-1)[0])
+    n_trees_per_iter = len(model._predictors[0])
+    baseline_arr = model._baseline_prediction.reshape(-1)
 
-    payload = {
-        "feature_columns": feature_columns,
-        "baseline": baseline,
-        "trees": trees,
-        "threshold": threshold,
-    }
+    if n_trees_per_iter == 1:
+        # Binary classification: unchanged from the original export, plus an explicit mode tag.
+        trees = [dump_tree(stage[0]) for stage in model._predictors]
+        payload = {
+            "mode": "binary",
+            "feature_columns": feature_columns,
+            "baseline": float(baseline_arr[0]),
+            "trees": trees,
+            "threshold": threshold,
+        }
+        print(f"exported {len(trees)} trees, {sum(len(t) for t in trees)} nodes, "
+              f"mode=binary, threshold={threshold} -> {out_path}")
+    else:
+        # Export the classes in model.classes_'s actual order (sklearn sorts alphabetically by
+        # default), NOT bundle["classes"]'s order (train_intent_classifier.py's CLASSES constant
+        # is base/aggro/develop/snipe/survive — not alphabetical) — predict_multiclass_one must
+        # return probabilities in the same order model.predict_proba does, or the bit-for-bit
+        # verification in test_pure_predictor_multiclass.py cannot pass.
+        classes = [str(c) for c in model.classes_]
+        trees_per_class = [[] for _ in range(n_trees_per_iter)]
+        for stage in model._predictors:
+            for k in range(n_trees_per_iter):
+                trees_per_class[k].append(dump_tree(stage[k]))
+        payload = {
+            "mode": "multiclass",
+            "feature_columns": feature_columns,
+            "classes": classes,
+            "baseline": [float(b) for b in baseline_arr],
+            "trees_per_class": trees_per_class,
+            "threshold": threshold,
+        }
+        total_nodes = sum(len(t) for trees in trees_per_class for t in trees)
+        print(f"exported {n_trees_per_iter} classes x {len(trees_per_class[0])} trees "
+              f"({total_nodes} nodes), mode=multiclass -> {out_path}")
+
     with open(out_path, "w") as f:
         json.dump(payload, f)
-    print(f"exported {len(trees)} trees, {sum(len(t) for t in trees)} nodes, threshold={threshold} -> {out_path}")
 
 
 if __name__ == "__main__":
