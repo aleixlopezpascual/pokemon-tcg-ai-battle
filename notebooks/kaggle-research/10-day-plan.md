@@ -729,3 +729,81 @@ condition, the next step is **Task 14 (IL intent classifier contingency) or stop
 `masamikobayashi_archaludon_cinderace` as the Final Submission fallback** — not a third repair
 cycle on this same intent-PIMC search stack. This document does not decide which of those two; that
 call is left to whoever reads this section next.
+
+### 2026-08-11 — intent-PIMC iteration gate, third attempt (IL classifier wiring, pre-registered)
+
+Per the second attempt's own recommendation, Task 14 built an IL intent classifier contingency:
+Task 14a (commit `bb631ed`) trained and exported a 5-class (`aggro, base, develop, snipe,
+survive` — alphabetical, per sklearn's default `classes_` ordering) stdlib-only gradient-boosted
+classifier (`models/il_intent_classifier_pure.json`), flagged at the time as a concern because its
+held-out accuracy (85.7%) came in *below* the majority-class baseline (87.7%), traced to severe
+class imbalance (`develop` n=6, `snipe` n=93, `survive` n=58 training examples). Task 14b
+(commit range below) wired that classifier into `search_reorder` as the primary decision
+mechanism, replacing the PIMC-over-all-intents comparison from the first two attempts: the
+classifier's argmax now picks the intent directly, with PIMC's paired-determinization estimator
+invoked only as a tiebreaker when the top-two predicted class probabilities are within 0.1. This
+gate re-run measures whether the classifier's decision was any better than PIMC's, honestly
+regardless of how the offline accuracy number looked beforehand.
+
+Same three pass rules as the first two attempts (baselines unchanged: Crustle 33.5%, Alakazam
+42.1%, mirror 50.0%, pooled 41.9%):
+1. Pooled win rate across the three matchups >= 47.0%.
+2. No single matchup regresses by more than 5pp against its baseline.
+3. `stats.game_capped == 0` and errors no worse than the Task 4 baseline.
+
+**Reading (2026-08-11):** `PTCG_SEARCH_PROFILE=fast python3 src/ladder_eval.py rate --candidate
+submissions/archaludon_intent --panel submissions/soutasakurai_libraryout_crustle
+submissions/biohack44_alakazam_dunsparce submissions/masamikobayashi_archaludon_cinderace --games
+1000 --workers 8 --json data/processed/ratings/archaludon_intent_gate3_il.json`, 3000 games total
+(1000/opponent), panel version `fa733a4e989a`, candidate with the classifier-argmax `search_reorder`
+wired in (Task 14b):
+
+| opponent | wins/games | win% | 95% Wilson CI | baseline | delta |
+|---|---|---|---|---|---|
+| `soutasakurai_libraryout_crustle` | 448/1000 | 44.8% | [41.7, 47.9] | 33.5% | **+11.3pp** |
+| `biohack44_alakazam_dunsparce` | 359/1000 | 35.9% | [33.0, 38.9] | 42.1% | **−6.2pp** |
+| `masamikobayashi_archaludon_cinderace` (mirror) | 363/1000 | 36.3% | [33.4, 39.3] | 50.0% | **−13.7pp** |
+| **pooled (three matchups)** | 1170/3000 | **39.0%** | [37.3, 40.8] | 41.9% | **−2.9pp** |
+
+Battle-level errors (`err` column): 0/1000 in every matchup. Local μ over this three-member field
+is 641.0 (σ 19.1) — not comparable to the seven-member panel numbers elsewhere in this file, and
+not used for the verdict below. Same `stats.game_capped` caveat as the first two attempts: this
+harness only surfaces battle-start failures, not `main.py`'s internal `_search_stats` counters.
+
+Runtime note: this reading completed in well under the brief's 2-4h estimate — the classifier-
+argmax path only invokes the expensive paired-PIMC estimator on a near-tie (top-two probabilities
+within 0.1), so most of the 3000 games' MAIN decisions skip `_pimc_score_lines` entirely. This is
+the expected consequence of Step 6's design (PIMC as tiebreaker, not primary mechanism), not a
+scope cut — the full 1000 games/opponent (3000 total) ran to completion.
+
+**Verdict:**
+
+1. **Pooled win rate >= 47.0%: FAIL.** Actual pooled rate is 39.0%, below both the 47.0% threshold
+   and the 41.9% pre-fix baseline (−2.9pp) — worse than the first attempt's flat 41.9% and close to
+   the second attempt's −1.9pp.
+2. **No single matchup regresses by more than 5pp against its baseline: FAIL, badly.** The mirror
+   matchup collapsed from 50.0% to 36.3%, a 13.7pp regression — nearly 3x the second attempt's
+   worst regression (Alakazam, −5.3pp) and by far the largest single-matchup regression across all
+   three gate attempts. Alakazam also regressed over budget (−6.2pp). Only Crustle improved
+   (+11.3pp, not a regression) — the classifier moved performance in opposite directions on
+   different opponents rather than uniformly up or down.
+3. **`stats.game_capped == 0` and errors no worse than Task 4 baseline: PASS on available
+   evidence.** Battle-level errors are 0/1000 in every matchup, matching all prior attempts and the
+   Task 4 baseline. `stats.game_capped` itself was not independently re-measured by this harness
+   (same caveat as both prior attempts).
+
+**Overall: FAIL — rules 1 and 2 both fail**, and rule 2 fails harder than either prior attempt (the
+13.7pp mirror regression dwarfs the second attempt's 5.3pp Alakazam regression). The IL intent
+classifier's pre-registered offline concern (85.7% held-out accuracy below the 87.7% majority-class
+baseline, driven by severe class imbalance in `develop`/`snipe`/`survive`) predicted exactly this
+outcome: a classifier that cannot reliably beat "always predict the plurality class" offline had no
+reason to beat PIMC's already-failing comparison on the ladder, and it did not — it made the worst
+single-matchup regression measured across all three attempts. This is the third Task 11 attempt (two
+PIMC-only, one IL-classifier) and per CLAUDE.md's standing skepticism flag on IL after two prior
+underperforming attempts (`il_agent_v2`/`v3`), this is now the **third** IL-shaped approach in this
+repo to underperform a simpler rule-based/PIMC baseline. **Recommend stopping and shipping the best
+rule-based candidate (Archaludon base, `masamikobayashi_archaludon_cinderace`) as the Final
+Submission fallback** — no further repair cycle on the intent-PIMC/IL-classifier search stack is
+recommended. This is a report-and-stop finding; per Task 14b's brief, the coordinator decides the
+next dispatch, and Task 12 (full frozen-panel confirmation) is explicitly not entered here even
+though not every rule can plausibly be salvaged by a fourth iteration.

@@ -320,6 +320,32 @@ def test_fingerprint(m):
           f"all {min(40, len(fixtures))} sampled states hashed identically")
 
 
+def test_intent_classifier_wiring(m):
+    if not hasattr(m, "classify_intent"):
+        skip("intent classifier wiring", "classify_intent not defined")
+        return
+    fixtures = load_fixture("main_states_crustle.jsonl")
+    if not fixtures:
+        skip("intent classifier wiring", "no captured MAIN states")
+        return
+    checked = 0
+    for obs_dict in fixtures:
+        obs = m.to_observation_class(obs_dict)
+        if obs.select is None or not obs.select.option:
+            continue
+        intent, probs = m.classify_intent(obs)
+        check("classify_intent returns a known intent",
+              intent in m.INTENTS, f"got {intent!r}")
+        check("classify_intent probs sum to ~1",
+              abs(sum(probs) - 1.0) < 1e-6, f"sum={sum(probs)}")
+        check("classify_intent probs length matches classes",
+              len(probs) == len(m._INTENT_CLASSES), f"{len(probs)} vs {len(m._INTENT_CLASSES)}")
+        checked += 1
+        if checked >= 10:
+            break
+    print(f"        ({checked} states checked)")
+
+
 def main():
     m = _load_candidate()
     if m is None:
@@ -334,6 +360,7 @@ def main():
         test_intents(m)
         test_turn_commitment(m)
         test_fingerprint(m)
+        test_intent_classifier_wiring(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
