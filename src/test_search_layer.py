@@ -200,6 +200,40 @@ def test_generic_policy_attaches_energy(m):
           evolve_score > end_score, f"evolve {evolve_score} vs end {end_score}")
 
 
+def test_intents(m):
+    check("INTENTS defined", hasattr(m, "INTENTS"))
+    if not hasattr(m, "INTENTS"):
+        return
+    check("base is the first intent", m.INTENTS[0] == "base", f"got {m.INTENTS}")
+    check("five intents", len(m.INTENTS) == 5, f"got {len(m.INTENTS)}")
+
+    fixtures = load_fixture("main_states_crustle.jsonl")
+    if not fixtures:
+        skip("intents diverge", "no captured MAIN states")
+        return
+
+    diverged = 0
+    considered = 0
+    for obs_dict in fixtures:
+        obs = m.to_observation_class(obs_dict)
+        if obs.select is None or len(obs.select.option) < 2:
+            continue
+        considered += 1
+        picks = {intent: tuple(m.choose_options_intent(obs, intent)) for intent in m.INTENTS}
+        check(f"base intent reproduces choose_options (state {considered})",
+              picks["base"] == tuple(m.choose_options(obs)),
+              f"{picks['base']} vs {tuple(m.choose_options(obs))}")
+        if len(set(picks.values())) > 1:
+            diverged += 1
+        if considered >= 40:
+            break
+    if considered:
+        share = diverged / considered
+        print(f"        (intents diverge on {diverged}/{considered} = {share:.1%} of multi-option states)")
+        check("intents diverge somewhere", diverged > 0,
+              "every intent picked the same option in every sampled state")
+
+
 def main():
     m = _load_candidate()
     if m is None:
@@ -210,6 +244,7 @@ def main():
         test_rank_options(m)
         test_shared_determinization(m)
         test_generic_policy_attaches_energy(m)
+        test_intents(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
