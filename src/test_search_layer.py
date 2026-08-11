@@ -200,6 +200,59 @@ def test_generic_policy_attaches_energy(m):
           evolve_score > end_score, f"evolve {evolve_score} vs end {end_score}")
 
 
+def test_generic_policy_scores_real_attack_damage(m):
+    """The rollout opponent must rate its own real attacks by their real damage.
+
+    `_generic_score_option`'s ATTACK branch used to call `best_attack_damage`, which only knows
+    OUR OWN deck's attacks (`_ATTACK_BASE_DMG` is keyed by our attackIds) and returns 0 for
+    everything else -- tying with OptionType.END, also scored 0. That makes the modelled opponent
+    treat every non-mirror attack as equally (un)threatening as passing, which flattens PIMC's
+    rollouts into a near-passive strawman for every non-Metal deck. Crustle's Superb Scissors
+    (attackId 479, real base damage 120, confirmed via cg.api.all_attack()) is a concrete
+    non-Archaludon attack the fixture opponent actually has -- it must score well above 0/END.
+    """
+    check("generic scorer exists", hasattr(m, "_generic_score_option"))
+    if not hasattr(m, "_generic_score_option"):
+        return
+
+    SUPERB_SCISSORS = 479
+
+    class _Opt:
+        def __init__(self, **kw):
+            self.type = kw.get("type")
+            self.attackId = kw.get("attackId")
+            self.number = kw.get("number")
+            self.inPlayArea = kw.get("inPlayArea")
+            self.cardId = kw.get("cardId")
+
+    class _Sel:
+        context = m.SelectContext.ATTACK
+        minCount = 1
+        maxCount = 1
+        option = []
+
+    class _Cur:
+        energyAttached = False
+
+    class _Obs:
+        select = _Sel()
+        current = _Cur()
+
+    obs = _Obs()
+    atk = m.ALL_ATTACKS.get(SUPERB_SCISSORS)
+    if atk is None:
+        skip("generic policy scores real attack damage", "ALL_ATTACKS has no entry for 479 (engine mismatch)")
+        return
+
+    attack_score, _ = m._generic_score_option(obs, _Opt(type=m.OptionType.ATTACK, attackId=SUPERB_SCISSORS))
+    end_score, _ = m._generic_score_option(obs, _Opt(type=m.OptionType.END))
+    check("generic policy scores a real (non-Archaludon) attack above 0/END",
+          attack_score > 0 and attack_score > end_score,
+          f"Superb Scissors scored {attack_score} vs END {end_score}")
+    check("generic policy's attack score matches the engine's real base damage",
+          attack_score == atk.damage, f"got {attack_score}, engine says damage={atk.damage}")
+
+
 def test_intents(m):
     check("INTENTS defined", hasattr(m, "INTENTS"))
     if not hasattr(m, "INTENTS"):
@@ -277,6 +330,7 @@ def main():
         test_rank_options(m)
         test_shared_determinization(m)
         test_generic_policy_attaches_energy(m)
+        test_generic_policy_scores_real_attack_damage(m)
         test_intents(m)
         test_turn_commitment(m)
         test_fingerprint(m)
