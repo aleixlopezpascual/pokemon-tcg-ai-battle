@@ -807,3 +807,87 @@ Submission fallback** — no further repair cycle on the intent-PIMC/IL-classifi
 recommended. This is a report-and-stop finding; per Task 14b's brief, the coordinator decides the
 next dispatch, and Task 12 (full frozen-panel confirmation) is explicitly not entered here even
 though not every rule can plausibly be salvaged by a fourth iteration.
+
+### 2026-08-11 — intent-PIMC iteration gate, fourth attempt (hidden-info energy/tool/preEvolution visibility fix, pre-registered)
+
+After the third attempt's stop recommendation, user chose (via AskUserQuestion, given the standing
+"don't stop trying" directive) to pursue "improve hidden-info sampling fidelity" as one more lever,
+distinct from and narrower than the classifier/PIMC-mechanism changes already tried. Investigation
+(dispatched `game-engine-analyst` research into `cg/api.py`'s actual `search_begin` validation and
+`Pokemon`/`PlayerState` dataclass semantics) ruled out two candidate bugs as structurally inert
+before implementing anything: `search_begin` validates only zone-length counts, not card identity,
+so a non-randomized `your_prize` fill is harmless; `active_guess`'s static pick only matters during
+the pre-game `SETUP_ACTIVE_POKEMON`/`SETUP_BENCH_POKEMON` phase (`obs.current.turn == 0`), not a
+recurring mid-game state. A third, genuinely reachable gap was found instead:
+`_classify_opponent_archetype`'s `seen` list ignored each opponent Pokemon's fully-visible
+`energyCards`/`tools`/`preEvolution` (`cg/api.py:339-348` — real `Card` objects, not counts, visible
+for the opponent's active/bench same as ours). Fixed at `main.py:1504-1544` (commit N/A —
+`submissions/` is gitignored) to include those ids in both the archetype match score and the
+hidden-pool subtraction in `_hidden_info_kwargs`. Confirmed via `src/search_telemetry.py` before
+gating: Crustle archetype match rate rose 99.33% -> 100% at n=40, `errors: 0`.
+
+Same three pass rules as all three prior attempts (baselines unchanged: Crustle 33.5%, Alakazam
+42.1%, mirror 50.0%, pooled 41.9%):
+1. Pooled win rate across the three matchups >= 47.0%.
+2. No single matchup regresses by more than 5pp against its baseline.
+3. `stats.game_capped == 0` and errors no worse than the Task 4 baseline.
+
+**Reading (2026-08-11):** `PTCG_SEARCH_PROFILE=fast python3 src/ladder_eval.py rate --candidate
+submissions/archaludon_intent --panel submissions/soutasakurai_libraryout_crustle
+submissions/biohack44_alakazam_dunsparce submissions/masamikobayashi_archaludon_cinderace --games
+1000 --workers 8 --json data/processed/ratings/archaludon_intent_gate4_energyvis.json`, 3000 games
+total (1000/opponent), panel version `fa733a4e989a`:
+
+| opponent | wins/games | win% | 95% Wilson CI | baseline | delta |
+|---|---|---|---|---|---|
+| `soutasakurai_libraryout_crustle` | 436/1000 | 43.6% | [40.6, 46.7] | 33.5% | **+10.1pp** |
+| `biohack44_alakazam_dunsparce` | 349/1000 | 34.9% | [32.0, 37.9] | 42.1% | **−7.2pp** |
+| `masamikobayashi_archaludon_cinderace` (mirror) | 331/1000 | 33.1% | [30.3, 36.1] | 50.0% | **−16.9pp** |
+| **pooled (three matchups)** | 1116/3000 | **37.2%** | [35.5, 38.9] | 41.9% | **−4.7pp** |
+
+Battle-level errors: 0/1000 in every matchup. Local μ over this three-member field is 627.7
+(σ 19.1) — not comparable to seven-member panel numbers, not used for the verdict.
+
+**Post-hoc investigation (before writing this off as noise):** a 16.9pp mirror regression at
+n=1000 (Wilson half-width ~3.1pp) is far outside the ~25μ / noise-floor band this repo trusts, so it
+was checked rather than shrugged off. `search_reorder`'s rollout opponent-model branch
+(`main.py:1852`, from the original intent-PIMC plan's Task 7) uses the *accurate* self-policy
+(`choose_options`) to simulate the opponent inside PIMC rollouts only when
+`_last_archetype_name == "archaludon_cinderace"` (the confirmed mirror), falling back to a crude
+generic policy otherwise — a plausible mechanism for exactly this failure mode if the new scoring
+change misclassified the mirror away from its own archetype. Re-measured with
+`search_telemetry.py` directly against the mirror opponent (60 games): `archetype_share` was
+`{"archaludon_cinderace": 0.943, "null": 0.057}` — misclassification is not the driver, match
+quality stayed high. The more likely explanation is the pre-existing, previously-flagged PIMC
+resolution problem: this same run showed `mean_draws_per_line: 0.27` (most PIMC decisions complete
+under 1 full paired draw before the time budget cuts them off) while still overriding the base
+policy 26.3% of the time (`override_share`) — i.e., a large share of overrides are being made on
+close to zero real signal, and that noise-driven override behavior was already flagged as the
+"real bottleneck" in the AskUserQuestion that led to this attempt, unrelated to hidden-info fidelity.
+The energy/tool/preEvolution fix likely worked as intended (its own target metric moved cleanly:
+Crustle +10.1pp, the one matchup where no known confound applies) but was measured on top of a
+search layer whose own decision quality is dominated by a different, already-identified defect it
+does not touch.
+
+**Verdict:**
+
+1. **Pooled win rate >= 47.0%: FAIL.** 37.2%, below both the 47.0% threshold and the 41.9%
+   pre-fix baseline (−4.7pp) — the worst pooled result of all four attempts (prior worst was the
+   IL classifier's 39.0%).
+2. **No single matchup regresses by more than 5pp: FAIL.** Mirror −16.9pp (worst single-matchup
+   regression across all four attempts, beating the IL classifier's −13.7pp) and Alakazam −7.2pp,
+   both over budget. Only Crustle improved (+10.1pp).
+3. **`stats.game_capped == 0`, errors no worse than baseline: PASS.** 0/1000 errors in every
+   matchup.
+
+**Overall: FAIL — rules 1 and 2 both fail, and this is now the worst-performing of all four Task 11
+attempts by pooled rate.** This is the fourth consecutive failure of this gate (two PIMC-only
+variants, one IL-classifier variant, one hidden-info-fidelity variant), and the post-hoc
+investigation traces the dominant cause to a defect this attempt never targeted (PIMC's
+near-zero-draw noise-driven overrides), not to the fix itself. The pool of untried,
+reachability-confirmed levers from the original intent-PIMC plan and the orbit-wars-teardown doc is
+now effectively exhausted for this specific gate. Recommend stopping the intent-PIMC/search-layer
+track for the Simulation deadline and shipping the best rule-based candidate (Archaludon base,
+`masamikobayashi_archaludon_cinderace`) as the Final Submission fallback, consistent with the third
+attempt's recommendation — surfaced to the user rather than acted on unilaterally, since it reverses
+the direction of the user's most recent explicit choice.
