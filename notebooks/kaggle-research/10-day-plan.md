@@ -587,8 +587,9 @@ non-mirror rollout.
   (`main.py:1625-1634`) — it's just never threaded into the trace call, and no base-candidate score
   is ever computed at all (`base_value` is a local hardcoded to `None` at `main.py:1640`). Same
   hardcoding affects `draws_per_line` (`main.py:1639`, always `0`), which is why that column reads
-  `0.0` everywhere too. This is a Task 2 instrumentation gap, not a finding about the actual
-  estimator's resolution — G1c cannot be assessed until that wiring is fixed.
+  `0.0` everywhere too. This is expected, per Task 2 Step 4's own explicit deferral — not an
+  oversight; the real wiring lands in Task 6. It's not a finding about the actual estimator's
+  resolution — G1c cannot be assessed until that wiring is fixed.
 - **G1d — opponent model: fails (confirmed directly).** The modelled opponent's energy-attachment
   rate in every non-mirror rollout is exactly 0, not just "~0" — `score_attach` structurally cannot
   score an attach above `END` for any archetype other than the mirror, because none of those
