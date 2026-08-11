@@ -324,6 +324,9 @@ def test_intent_classifier_wiring(m):
     if not hasattr(m, "classify_intent"):
         skip("intent classifier wiring", "classify_intent not defined")
         return
+    check("intent model loaded (not the uniform fallback)", m._INTENT_MODEL is not None,
+          "classify_intent would silently return the uniform-fallback distribution for every "
+          "call, and every check below would still pass")
     fixtures = load_fixture("main_states_crustle.jsonl")
     if not fixtures:
         skip("intent classifier wiring", "no captured MAIN states")
