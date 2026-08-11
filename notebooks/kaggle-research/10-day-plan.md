@@ -520,3 +520,84 @@ watching the current pair settle.
   a kernel (or your own candidate) that crushes it locally may not generalize. Treat local
   `run-battle` results as a fast filter, not a final verdict — the real signal is the hidden
   ladder via actual Kaggle submissions, which are slower to get feedback from.
+
+## 2026-08-11 — reopening the PIMC layer: pre-registered diagnostic gate G1
+
+The 2026-08-10 kill decision was made on the mirror alone. The mirror is also the one matchup in
+which the rollout's opponent model (`choose_options`, the Archaludon policy) is accidentally
+correct, so it cannot expose the model's defects. Measuring the *unmodified* `archaludon_search`
+layer against Crustle and Alakazam before changing anything.
+
+Rules, fixed before any reading:
+
+- **G1a — candidate collapse.** If `mean_distinct_lines` <= 1.2, varying only the first action
+  cannot change the turn, and intent-based candidates (Task 8-10) are mandatory rather than
+  optional.
+- **G1b — off-mirror headroom.** If `override_share` against Crustle or Alakazam is >= 3x the
+  mirror's, the mirror-only kill was unrepresentative and the layer is worth reopening.
+- **G1c — estimator resolution.** If `mean_value_gap` is smaller than 2*sqrt(2/PIMC_DETERMINIZATIONS),
+  the PIMC estimator cannot resolve the differences it is being asked to rank, and every override
+  it makes is noise. Fix the estimator (Task 6) before judging the idea.
+- **G1d — opponent model.** If the modelled opponent's energy-attachment rate in non-mirror
+  rollouts is ~0, the rollouts are not games and no amount of extra sampling helps.
+
+If G1b fails *and* G1c passes *and* G1d passes, the 2026-08-10 conclusion is correct as stated and
+this whole plan should stop at this task.
+
+**Readings** (unmodified `archaludon_intent`, post Task 1-3 scaffolding, `PTCG_SEARCH_PROFILE=fast`
+i.e. `PIMC_DETERMINIZATIONS=12`, 56 games each — `--games 60 --workers 8` floor-divides to
+7 games/worker × 8 = 56, not a dropped-game bug):
+
+| field | vs Crustle | vs Alakazam | vs mirror (Cinderace) |
+|---|---|---|---|
+| `multi_option_share` | 0.9768 | 0.9799 | 0.9785 |
+| `mean_distinct_lines` | 5.6595 | 5.5897 | 5.5168 |
+| `override_share` | 0.3439 | 0.2114 | 0.3226 |
+| `mean_value_gap` | null | null | null |
+| `mean_draws_per_line` | 0.0 | 0.0 | 0.0 |
+| `archetype_share` (matched) | 0.9932 (`libraryout_crustle`) | 0.9441 (`alakazam_dunsparce`) | 0.9168 (`archaludon_cinderace`) |
+| `win_rate` | 0.3929 (22/56) | 0.3571 (20/56) | 0.4107 (23/56) |
+| `cpu_seconds_per_game` | 36.595 | 18.153 | 23.305 |
+
+Raw JSON: `data/processed/instrumentation/baseline_vs_soutasakurai_libraryout_crustle.json`,
+`baseline_vs_biohack44_alakazam_dunsparce.json`, `baseline_vs_masamikobayashi_archaludon_cinderace.json`.
+
+**G1d verified directly** (per the brief's snippet, `CardType.ENERGY` doesn't exist on this engine's
+enum — it's `BASIC_ENERGY`/`SPECIAL_ENERGY`; used `{CardType.BASIC_ENERGY, CardType.SPECIAL_ENERGY}`
+instead, same intent): every `_ARCHETYPE_DECKS` entry except `archaludon_cinderace` (the mirror)
+shows `metal(8) present: False` — `dragapult_ex`, `libraryout_crustle`, `mega_lucario_ex`,
+`alakazam_dunsparce`, `probablity_v2` all lack `METAL_ENERGY` entirely. `score_attach`
+(`main.py:816-833`) returns `-500, "skip non-Metal"` for any other card id, which loses to `END`'s
+0, so the modelled opponent's ATTACH branch can structurally never win a comparison in any
+non-mirror rollout.
+
+**Verdict:**
+
+- **G1a — no collapse.** `mean_distinct_lines` is 5.5-5.7 in every matchup, far above the 1.2
+  collapse threshold. **Passes** (not collapsed) — the layer is already varying the first action
+  across several distinct lines per decision, off-mirror included.
+- **G1b — off-mirror headroom: fails.** 3x the mirror's `override_share` (0.3226) is 0.9679.
+  Neither Crustle (0.3439, ~1.07x) nor Alakazam (0.2114, ~0.66x) clears it — off-mirror
+  `override_share` is in the same band as the mirror's, not 3x higher. By this proxy the
+  mirror-only kill was not obviously unrepresentative.
+- **G1c — estimator resolution: untestable with current data, not "passes."** `mean_value_gap` is
+  `null` in all three JSONs. Root cause confirmed by reading `main.py` directly, not inferred: the
+  PIMC branch's `_trace()` call (`main.py:1636-1653`) hardcodes `base_value=None` and
+  `best_value=None` in the emitted record even though `best_value` is computed a few lines earlier
+  (`main.py:1625-1634`) — it's just never threaded into the trace call, and no base-candidate score
+  is ever computed at all (`base_value` is a local hardcoded to `None` at `main.py:1640`). Same
+  hardcoding affects `draws_per_line` (`main.py:1639`, always `0`), which is why that column reads
+  `0.0` everywhere too. This is a Task 2 instrumentation gap, not a finding about the actual
+  estimator's resolution — G1c cannot be assessed until that wiring is fixed.
+- **G1d — opponent model: fails (confirmed directly).** The modelled opponent's energy-attachment
+  rate in every non-mirror rollout is exactly 0, not just "~0" — `score_attach` structurally cannot
+  score an attach above `END` for any archetype other than the mirror, because none of those
+  archetypes' decks contain `METAL_ENERGY` and any other card id scores `-500`.
+
+**Net:** the plan's stop rule ("G1b fails *and* G1c passes *and* G1d passes") is **not satisfied** —
+G1b does fail, but G1c is inconclusive (not a pass) and G1d also fails (confirmed, not passes). The
+2026-08-10 mirror-only kill is therefore not vindicated by this data as stated: there is a
+confirmed, structural defect in the rollout opponent model (G1d) that would suppress or distort any
+off-mirror `override_share` signal regardless of whether real headroom exists, which is itself a
+plausible explanation for why G1b's proxy came back negative. This task does not decide whether to
+continue past this gate; that call is left to whoever reads this section next.
