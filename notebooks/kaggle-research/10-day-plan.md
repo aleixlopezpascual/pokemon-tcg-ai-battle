@@ -666,3 +666,66 @@ still-open, confirmed defect in the rollout opponent model that would suppress e
 of off-mirror gain rule 1 was checking for — making **Task 7 (opponent model)** the more directly
 implicated of the two return destinations, though the brief does not force a single choice
 between 8 and 7.
+
+### 2026-08-11 — intent-PIMC iteration gate, second attempt (pre-registered)
+
+First attempt (commit 0fb8427) failed rule 1: pooled 41.9%, identical to the 41.9% pre-fix
+baseline. Diagnosis traced this to `_generic_score_option`'s ATTACK branch scoring every
+non-mirror opponent attack as 0 damage (hardcoded to our own deck's attack IDs via
+`best_attack_damage`/`_ATTACK_BASE_DMG`). Fixed in commit a4e9ef9 (`generic_attack_damage()`,
+a real deck-agnostic lookup via the engine's `ALL_ATTACKS` table). An 80-game telemetry check
+showed `mean_value_gap` improve modestly (Crustle 0.0935->0.1108, Alakazam ~0.09->0.1188,
++18-30% relative) but not dramatically.
+
+Same three pass rules as the first attempt (baselines unchanged: Crustle 33.5%, Alakazam 42.1%,
+mirror 50.0%, pooled 41.9%):
+1. Pooled win rate across the three matchups >= 47.0%.
+2. No single matchup regresses by more than 5pp against its baseline.
+3. `stats.game_capped == 0` and errors no worse than the Task 4 baseline.
+
+Per the plan's stop condition: this is the plan's SECOND Task 11 attempt. If this also fails,
+per the plan, the next step is Task 14 (IL intent classifier contingency) or stopping and
+shipping the best rule-based candidate (`masamikobayashi_archaludon_cinderace`) as the Final
+Submission fallback -- not a third repair cycle on this same search stack.
+
+**Reading (2026-08-11):** `PTCG_SEARCH_PROFILE=fast python3 src/ladder_eval.py rate --candidate
+submissions/archaludon_intent --panel submissions/soutasakurai_libraryout_crustle
+submissions/biohack44_alakazam_dunsparce submissions/masamikobayashi_archaludon_cinderace --games
+1000 --workers 8 --json data/processed/ratings/archaludon_intent_gate3_v2.json`, 3000 games total
+(1000/opponent), panel version `fa733a4e989a`, candidate at commit a4e9ef9 (post generic-attack-
+damage fix):
+
+| opponent | wins/games | win% | 95% Wilson CI | baseline | delta |
+|---|---|---|---|---|---|
+| `soutasakurai_libraryout_crustle` | 334/1000 | 33.4% | [30.5, 36.4] | 33.5% | −0.1pp |
+| `biohack44_alakazam_dunsparce` | 368/1000 | 36.8% | [33.9, 39.8] | 42.1% | **−5.3pp** |
+| `masamikobayashi_archaludon_cinderace` (mirror) | 498/1000 | 49.8% | [46.7, 52.9] | 50.0% | −0.2pp |
+| **pooled (three matchups)** | 1200/3000 | **40.0%** | [38.3, 41.8] | 41.9% | **−1.9pp** |
+
+Battle-level errors (`err` column): 0/1000 in every matchup. Local μ over this three-member field
+is 633.7 (σ 19.1) — not comparable to the seven-member panel numbers elsewhere in this file, and
+not used for the verdict below. Same `stats.game_capped` caveat as the first attempt: this harness
+only surfaces battle-start failures, not `main.py`'s internal `_search_stats` counters.
+
+**Verdict:**
+
+1. **Pooled win rate >= 47.0%: FAIL.** Actual pooled rate is 40.0%, *below* both the 47.0%
+   threshold and the 41.9% pre-fix baseline (−1.9pp) — the generic-attack-damage fix moved the
+   pooled rate in the wrong direction, not just short of target.
+2. **No single matchup regresses by more than 5pp against its baseline: FAIL.** Alakazam dropped
+   from 42.1% to 36.8%, a 5.3pp regression — over the 5pp budget. Crustle (−0.1pp) and the mirror
+   (−0.2pp) are both within budget.
+3. **`stats.game_capped == 0` and errors no worse than Task 4 baseline: PASS on available
+   evidence.** Battle-level errors are 0/1000 in every matchup, matching both the Task 4 baseline
+   and the first attempt. `stats.game_capped` was not independently re-measured by this harness
+   (same caveat as the first attempt).
+
+**Overall: FAIL — rules 1 and 2 both fail**, a harder failure than the first attempt (which
+failed only rule 1). The `generic_attack_damage()` fix did move `mean_value_gap` in the intended
+direction per the 80-game telemetry check, but that did not translate into a net win-rate gain at
+full scale — if anything, the pooled rate and the Alakazam matchup specifically got worse, not
+just "no better." This is the plan's **second** Task 11 attempt, and per the plan's stop
+condition, the next step is **Task 14 (IL intent classifier contingency) or stopping and shipping
+`masamikobayashi_archaludon_cinderace` as the Final Submission fallback** — not a third repair
+cycle on this same intent-PIMC search stack. This document does not decide which of those two; that
+call is left to whoever reads this section next.
