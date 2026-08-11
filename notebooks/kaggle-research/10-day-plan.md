@@ -955,3 +955,40 @@ pre-search baseline. This is the fifth consecutive failure of the pooled-≥47.0
 this investigation. Surfaced to the user for a decision on how to proceed, per this investigation's
 standing practice of never unilaterally deciding to stop or continue past a registered gate
 failure.
+
+### 2026-08-11 — root-causing why the fifth attempt landed at parity
+
+User chose "try one more fix" over stopping. Before spending a fix on another PIMC_MARGIN/
+PIMC_MIN_DRAWS retune (not a genuinely new mechanism), measured *why* the fifth attempt produced
+no real gain, using instrumented copies of the real code played through real battles
+(`data/processed/instrumentation/diag_rollout_reasons.py`, `diag_confirm_rate.py`, both
+gitignored, not committed).
+
+**Hypothesis 1 (ply cap starves draws) — mostly ruled out.** `_rollout_to_terminal`'s exit
+reasons over 5 real games vs Crustle: `{'terminated': 743, 'deadline': 0, 'ply_cutoff': 235,
+'dead_end': 62}` — 22.6% of rollout attempts hit `SEARCH_MAX_TOTAL_PLIES=80` without a verdict.
+Real, but when measured on the actual confirm-gate shape (2-line paired comparisons, 15 games,
+fast profile) it turns out to matter little: only 5/40 (12.5%) of confirm attempts land below
+`PIMC_MIN_DRAWS=3`. The earlier `mean_draws_per_line: 1.6` reading from gate 5's telemetry
+(`gate5_telemetry_vs_crustle.json`) is an artifact of averaging over *all* PIMC-eligible decisions,
+most of which never attempt a confirm at all (`classify_intent` already agrees with base) and
+correctly report `draws_per_line=0` by design — not evidence of starvation.
+
+**The real bottleneck: the mechanism rarely fires, and rarely survives when it does.** Same
+diagnostic run: of all PIMC-eligible decisions, only ~25% ever reach a confirm attempt
+(`classify_intent` picks a non-base candidate) — 40 confirm attempts over 15 games against an
+estimated ~10.8 PIMC-eligible decisions/game (604 pimc_decisions / 56 games from gate 5's
+telemetry). Of *those* confirm attempts, gate 5's telemetry shows only 18/604 = 2.98% overall
+decisions actually override, i.e. roughly 12% of confirm attempts survive `PIMC_MARGIN=0.30`
+after clearing the draw-count floor. Net: the search layer changes the agent's move on
+~3% of its decisions. Even if every one of those overrides is a real improvement, a signal
+touching 3% of decisions is not distinguishable from noise at n=1000/matchup — which is
+consistent with gate 5's own result (+0.6pp over baseline, well inside the noise band).
+
+**Conclusion.** This is not a bug to fix with another knob; it is the mechanism's ceiling as
+built. `classify_intent` + PIMC confirmation is working as designed, but the intents it proposes
+either collapse to the base line's own first move too often, or fail to show a resolvable edge
+often enough to matter. Retuning `PIMC_MARGIN`/`PIMC_MIN_DRAWS` again would not be a new
+mechanism — it would be the same lever pulled a third time. Surfaced to the user for a decision:
+invest in the plan's Task 14 contingency (IL intent classifier, a genuinely different mechanism —
+multi-day cost) or stop and ship the rule-based fallback.
