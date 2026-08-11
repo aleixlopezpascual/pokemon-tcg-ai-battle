@@ -50,12 +50,38 @@ def _load_run_battle_module():
 
 
 def _import_module(main_py, module_name):
-    sys.path.insert(0, str(Path(main_py).parent))
-    spec = importlib.util.spec_from_file_location(module_name, main_py)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = mod
-    spec.loader.exec_module(mod)
-    return mod
+    """Load one agent's `main.py` without letting its helper modules leak into the next agent's.
+
+    Submissions bundle same-named helpers (e.g. `il_intent_pure.py`). If two agents are loaded
+    into one process, the first agent's cached `sys.modules["il_intent_pure"]` will silently
+    corrupt the second agent's state. So: snapshot `sys.path` and `sys.modules`, do the import,
+    restore the path, and evict any newly-imported module that came from this agent's bundle.
+    """
+    agent_dir = Path(main_py).parent.resolve()
+    saved_path = list(sys.path)
+    before = set(sys.modules)
+    try:
+        sys.path.insert(0, str(agent_dir))
+        spec = importlib.util.spec_from_file_location(module_name, main_py)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = mod
+        spec.loader.exec_module(mod)
+        return mod
+    finally:
+        sys.path[:] = saved_path
+        # Evict any helper module imported from inside this agent's directory.
+        for name in set(sys.modules) - before:
+            if name == module_name:
+                continue
+            imported_mod = sys.modules.get(name)
+            origin = getattr(imported_mod, "__file__", None)
+            if not origin:
+                continue
+            try:
+                Path(origin).resolve().relative_to(agent_dir)
+            except ValueError:
+                continue  # not from this agent's bundle — genuinely shared, keep it cached
+            del sys.modules[name]
 
 
 def _worker_init(engine_dir, cand_dir, opp_dir, profile):
