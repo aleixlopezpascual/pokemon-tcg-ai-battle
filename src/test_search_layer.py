@@ -349,6 +349,154 @@ def test_intent_classifier_wiring(m):
     print(f"        ({checked} states checked)")
 
 
+def test_override_requires_pimc_confirmation(m):
+    """A classifier-favoured intent must be PIMC-confirmed (min draws + margin) before overriding.
+
+    Regression test for the 2026-08-11 Gate 4 root cause: the live override decision used to fire
+    on the classifier's raw top-1 pick with `draws_per_line` hardcoded to 0 (zero PIMC
+    verification), or on a near-tie PIMC comparison between the top-two CLASSIFIER picks that never
+    included the base line at all. `PIMC_MARGIN` was defined but referenced nowhere in the actual
+    decision. This pins the fix: every override now runs a base-vs-candidate paired PIMC check
+    gated on both PIMC_MIN_DRAWS and PIMC_MARGIN.
+    """
+    check("PIMC_MIN_DRAWS is set above zero", getattr(m, "PIMC_MIN_DRAWS", 0) > 0,
+          f"got {getattr(m, 'PIMC_MIN_DRAWS', None)}")
+    check("PIMC_MARGIN raised above the old disconnected 0.15 default",
+          getattr(m, "PIMC_MARGIN", 0) > 0.15, f"got {getattr(m, 'PIMC_MARGIN', None)}")
+
+    fixtures = load_fixture("main_states_crustle.jsonl")
+    if not fixtures:
+        skip("override requires PIMC confirmation", "no captured MAIN states")
+        return
+    if m.SEARCH_MODE != "pimc":
+        skip("override requires PIMC confirmation", f"SEARCH_MODE={m.SEARCH_MODE!r}")
+        return
+
+    # search_reorder's line-realisation pass (both the lethal/veto probe and the intent probe)
+    # calls the real C engine via _search_begin_determinized/search_step/_rollout_our_turn* --
+    # those require a live battle session matching `obs`, which a captured JSONL fixture does not
+    # have (confirmed directly: calling search_reorder on a fixture as-is raises inside
+    # _search_begin_determinized and search_reorder fails closed to base_selected before the
+    # classifier/PIMC gate is ever reached, `_search_stats["errors"]` incrementing every time).
+    # Stub every engine touchpoint so this test exercises only the override-decision logic added
+    # by this fix, not the (already-tested-elsewhere) real search machinery.
+    real_fns = {
+        name: getattr(m, name)
+        for name in ("_search_begin_determinized", "search_step", "_rollout_our_turn",
+                     "_rollout_our_turn_intent", "_board_fingerprint", "search_release")
+    }
+    real_pimc = m._pimc_score_lines
+    calls = []
+    fp_counter = [0]
+    current_obs = [None]  # search_step's real signature carries no obs -- read it from here instead
+
+    class _FakeState:
+        def __init__(self, obs_, sid):
+            self.searchId = sid
+            self.observation = obs_
+
+    def fake_search_begin_determinized(obs_, my_deck, kwargs=None):
+        return _FakeState(obs_, "probe-root")
+
+    def fake_search_step(search_id, picks):
+        # Pass the same (unmodified) obs through: this test's fixtures are static snapshots with
+        # no live battle behind them, so no stub can advance the game state -- it only needs to
+        # keep the object non-None so the calling code's attribute access doesn't crash.
+        return _FakeState(current_obs[0], f"{search_id}/{picks}")
+
+    def fake_rollout_our_turn(search_id, obs_, my_index, deadline, live):
+        return obs_  # pass-through: obs.current.result stays -1, so no lethal ever fires here
+
+    def fake_rollout_our_turn_intent(search_id, obs_, my_index, intent, deadline, live):
+        return obs_, search_id, None  # search_reorder recomputes first_option itself afterward
+
+    def fake_board_fingerprint(obs_):
+        # A distinct value per call keeps every intent's realised line from collapsing into
+        # another's, so the override gate always has a real (non-"base") candidate to confirm.
+        fp_counter[0] += 1
+        return fp_counter[0]
+
+    def fake_search_release(search_id):
+        pass
+
+    def fake_pimc_low(obs_, my_deck, my_index, lines, deadline):
+        calls.append(lines)
+        # Every line gets a huge apparent margin but only 1 draw -- below PIMC_MIN_DRAWS. Must
+        # NOT be enough to override: a margin computed from too few draws is indistinguishable
+        # from noise, which is exactly the mean_draws_per_line=0.27 failure mode this fixes.
+        return {key: (10.0, 1) for key, _ in lines}
+
+    def fake_pimc_high(obs_, my_deck, my_index, lines, deadline):
+        calls.append(lines)
+        keys = [key for key, _ in lines]
+        result = {k: (0.0, m.PIMC_MIN_DRAWS) for k in keys}
+        non_base = [k for k in keys if k != "base"]
+        if non_base:
+            result[non_base[0]] = (m.PIMC_MARGIN + 0.5, m.PIMC_MIN_DRAWS)
+        return result
+
+    m._search_begin_determinized = fake_search_begin_determinized
+    m.search_step = fake_search_step
+    m._rollout_our_turn = fake_rollout_our_turn
+    m._rollout_our_turn_intent = fake_rollout_our_turn_intent
+    m._board_fingerprint = fake_board_fingerprint
+    m.search_release = fake_search_release
+
+    tested = False
+    try:
+        for obs_dict in fixtures:
+            obs = m.to_observation_class(obs_dict)
+            if (obs.select is None or obs.select.context != m.SelectContext.MAIN
+                    or obs.select.maxCount != 1):
+                continue
+            base_selected = m.choose_options(obs)
+            if not base_selected:
+                continue
+            current_obs[0] = obs
+
+            calls.clear()
+            fp_counter[0] = 0
+            m._committed["turn"] = None
+            m._committed["intent"] = "base"
+            m._pimc_score_lines = fake_pimc_low
+            m.search_reorder(obs, base_selected)
+            if not calls:
+                continue  # classifier's pick was "base" (or unavailable) here -- try another state
+            committed_low = m._committed["intent"]
+
+            calls.clear()
+            fp_counter[0] = 0
+            m._committed["turn"] = None
+            m._committed["intent"] = "base"
+            m._pimc_score_lines = fake_pimc_high
+            m.search_reorder(obs, base_selected)
+            if not calls:
+                continue
+            committed_high = m._committed["intent"]
+
+            # Assert on the committed intent, not the returned option list: a biased intent can
+            # legitimately pick the same *first* action as base while still diverging later in the
+            # turn (test_intents measures this divergence at 32.5% of sampled states, not 100%), so
+            # comparing option lists alone would spuriously fail on states where the two happen to
+            # agree on move one.
+            check("insufficient draws never override despite an apparently huge margin",
+                  committed_low == "base", f"got committed intent {committed_low!r}")
+            check("sufficient draws + margin does override",
+                  committed_high != "base", f"got committed intent {committed_high!r}")
+            tested = True
+            break
+    finally:
+        for name, fn in real_fns.items():
+            setattr(m, name, fn)
+        m._pimc_score_lines = real_pimc
+        m._committed["turn"] = None
+        m._committed["intent"] = "base"
+
+    if not tested:
+        skip("override requires PIMC confirmation",
+             "no sampled state had a non-base classifier pick to exercise the gate")
+
+
 def main():
     m = _load_candidate()
     if m is None:
@@ -364,6 +512,7 @@ def main():
         test_turn_commitment(m)
         test_fingerprint(m)
         test_intent_classifier_wiring(m)
+        test_override_requires_pimc_confirmation(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
