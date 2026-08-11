@@ -100,6 +100,10 @@ known, common community gotcha, not a one-off bug.
     `kaggle competitions topics list/show`, not manual browsing — see below).
   - `evaluation-methodology.md` — how local win-rate evaluation is designed and calibrated.
   - `prioritization-matrix.md` — candidate/task prioritization scoring.
+  - `orbit-wars-teardown.md` — top-3 writeup mining from a different sim competition (Orbit
+    Wars); the transferable finding was `cg/api.py`'s `search_begin`/`search_step` forward-sim
+    API, which fed the PIMC search layer (built, evaluated, concluded negative — see
+    `10-day-plan.md`).
 - `src/` — reusable scripts: `fetch_kaggle_kernels.py` (list/pull public kernels),
   `ladder_eval.py` (frozen-panel TrueSkill rating — **the ranking gate**),
   `trueskill_lite.py` + `test_trueskill_lite.py` (stdlib no-draw TrueSkill and its tests),
