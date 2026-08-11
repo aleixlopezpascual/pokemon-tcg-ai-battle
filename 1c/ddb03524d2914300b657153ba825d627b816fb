@@ -1,0 +1,20 @@
+notebooks/kaggle-research/10-day-plan.md
+  s_65d71ceaf24a54::t_3b6eb61b9002e4 523-545
+  s_65d71ceaf24a54::t_fb6808f73c26ba 546-603
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1cddb03524d2914300b657153ba825d627b816fb",
+  "prompts": {},
+  "sessions": {
+    "s_65d71ceaf24a54": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "30f14ed8-8050-4564-940e-70c82e555e7c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
