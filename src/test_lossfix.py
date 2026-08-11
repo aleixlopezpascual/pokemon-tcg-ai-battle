@@ -66,8 +66,35 @@ def main():
         sys.exit(1)
 
 
+def test_lillie_shuffle_energy(m):
+    """Worklist #1 (crustle, turn 4, gap 2.0): chosen_option=3 (PLAY Lillie's Determination)
+    outranked best_alt_option=2 (ATTACH Metal Energy to a bench Pokemon).
+
+    Lillie's Determination shuffles the whole hand into the deck (see the pre-existing,
+    Crustle-only, and itself-buggy "Crustle: Lillie OK (no energy in hand)" guard in
+    apply_overrides — its has_metal=True branch falls through with no override at all). That
+    hazard -- losing an unattached Metal Energy card sitting in hand -- is not Crustle-specific;
+    it applies against every opponent, since attaching first costs nothing (Lillie can still be
+    played immediately afterward in the same turn once the energy is out of hand). score_play's
+    generic LILLIE branch never checked for this, so playing Lillie scored 5000 unconditionally
+    while attaching the loose Metal Energy scored only 2200 -- a real, generalizable heuristic
+    bug, not oracle noise (detect_matchup even returns "generic" at this turn, so the existing
+    Crustle-only guard was never reachable here in the first place)."""
+    fixture = load_fixture("crustle_turn4.json")
+    if fixture is None:
+        skip("lillie_shuffle_energy", "fixture not captured")
+        return
+    obs = m.to_observation_class(fixture)
+    chosen_opt = obs.select.option[3]
+    alt_opt = obs.select.option[2]
+    score, reason = m.score_option(obs, chosen_opt)
+    alt_score, _ = m.score_option(obs, alt_opt)
+    check("lillie_shuffle_energy no longer over-scores the blunder option",
+          score < alt_score, f"got score={score} reason={reason!r} alt_score={alt_score}")
+
+
 def run_all_tests(m):
-    pass  # each fix sub-step below appends one test_<fix_name>(m) call here
+    test_lillie_shuffle_energy(m)
 
 
 if __name__ == "__main__":
