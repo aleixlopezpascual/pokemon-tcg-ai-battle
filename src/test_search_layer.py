@@ -122,6 +122,39 @@ def test_rank_options(m):
     print(f"        ({checked} states checked)")
 
 
+def test_shared_determinization(m):
+    fixtures = load_fixture("main_states_crustle.jsonl")
+    if not fixtures:
+        skip("shared determinization", "no captured MAIN states")
+        return
+    import inspect
+    sig = inspect.signature(m._search_begin_determinized)
+    check("_search_begin_determinized accepts a precomputed kwargs dict",
+          "kwargs" in sig.parameters, f"got {list(sig.parameters)}")
+    check("_pimc_score_lines exists", hasattr(m, "_pimc_score_lines"))
+    check("PIMC_MARGIN is set above zero", getattr(m, "PIMC_MARGIN", 0) > 0,
+          f"got {getattr(m, 'PIMC_MARGIN', None)}")
+
+    obs = None
+    for obs_dict in fixtures:
+        o = m.to_observation_class(obs_dict)
+        if o.select is not None and o.select.option:
+            obs = o
+            break
+    if obs is None:
+        skip("determinization is resampled", "no usable MAIN state")
+        return
+    deck = m.read_deck_csv()
+    draws = [m._hidden_info_kwargs(obs, deck) for _ in range(6)]
+    hands = [tuple(d["opponent_hand"]) for d in draws]
+    check("hidden-info draws differ across resamples",
+          len(set(hands)) > 1 or all(len(h) == 0 for h in hands),
+          f"all {len(hands)} draws identical: {hands[0]}")
+    check("every draw has the same zone sizes",
+          len({(len(d["opponent_deck"]), len(d["opponent_hand"]),
+                len(d["opponent_prize"])) for d in draws}) == 1)
+
+
 def main():
     m = _load_candidate()
     if m is None:
@@ -130,6 +163,7 @@ def main():
         test_profile_knob(m)
         test_classify_returns_name(m)
         test_rank_options(m)
+        test_shared_determinization(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
