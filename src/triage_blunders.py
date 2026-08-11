@@ -30,7 +30,7 @@ def build_worklist(sources):
             key = (matchup, bucket_key(rec["turn"]))
             b = buckets[key]
             b["count"] += 1
-            if len(b["example_game_ids"]) < 3:
+            if len(b["example_game_ids"]) < 3 and rec["game_id"] not in b["example_game_ids"]:
                 b["example_game_ids"].append(rec["game_id"])
             if rec["gap"] > b["gap"]:
                 b["gap"] = rec["gap"]
