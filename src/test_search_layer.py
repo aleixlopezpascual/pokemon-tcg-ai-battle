@@ -248,6 +248,25 @@ def test_turn_commitment(m):
           "agent() must clear per-game state including _committed")
 
 
+def test_fingerprint(m):
+    check("_board_fingerprint exists", hasattr(m, "_board_fingerprint"))
+    check("_rollout_our_turn_intent exists", hasattr(m, "_rollout_our_turn_intent"))
+    if not hasattr(m, "_board_fingerprint"):
+        return
+    fixtures = load_fixture("main_states_crustle.jsonl")
+    if not fixtures:
+        skip("fingerprint is stable and hashable", "no captured MAIN states")
+        return
+    obs = m.to_observation_class(fixtures[0])
+    fp1 = m._board_fingerprint(obs)
+    fp2 = m._board_fingerprint(obs)
+    check("fingerprint is deterministic", fp1 == fp2)
+    check("fingerprint is hashable", isinstance(hash(fp1), int))
+    distinct = {m._board_fingerprint(m.to_observation_class(f)) for f in fixtures[:40]}
+    check("fingerprint distinguishes different boards", len(distinct) > 1,
+          f"all {min(40, len(fixtures))} sampled states hashed identically")
+
+
 def main():
     m = _load_candidate()
     if m is None:
@@ -260,6 +279,7 @@ def main():
         test_generic_policy_attaches_energy(m)
         test_intents(m)
         test_turn_commitment(m)
+        test_fingerprint(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
