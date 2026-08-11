@@ -989,6 +989,14 @@ consistent with gate 5's own result (+0.6pp over baseline, well inside the noise
 built. `classify_intent` + PIMC confirmation is working as designed, but the intents it proposes
 either collapse to the base line's own first move too often, or fail to show a resolvable edge
 often enough to matter. Retuning `PIMC_MARGIN`/`PIMC_MIN_DRAWS` again would not be a new
-mechanism — it would be the same lever pulled a third time. Surfaced to the user for a decision:
-invest in the plan's Task 14 contingency (IL intent classifier, a genuinely different mechanism —
-multi-day cost) or stop and ship the rule-based fallback.
+mechanism — it would be the same lever pulled a third time.
+
+**Correction to this section as first written:** it originally proposed the plan's Task 14 (IL
+intent classifier) contingency as the next untried lever. That is wrong — Task 14/14a/14b already
+ran (ledger `Task 14b: complete`) and already failed worse than doing nothing: pooled 39.0% vs the
+47.0% bar, mirror regressed 13.7pp, Alakazam regressed 6.2pp — the worst single-matchup regression
+of any Task-11 attempt to date. Both mechanisms the plan proposed (search-layer PIMC, and IL
+predicting the search layer's own intent labels) have now been tried and have both failed the
+gate, the second one decisively rather than at parity. No untried mechanism remains in the plan.
+Surfaced to the user with accurate framing: stop and ship the rule-based fallback, or specify a
+different approach to try, since intent-PIMC has no further plan-sanctioned lever left to pull.
