@@ -94,6 +94,34 @@ def test_classify_returns_name(m):
     print(f"        ({named} of 1 sampled states matched an archetype)")
 
 
+def test_rank_options(m):
+    fixtures = load_fixture("main_states_crustle.jsonl")
+    if not fixtures:
+        skip("rank_options", "no captured MAIN states")
+        return
+    checked = 0
+    for obs_dict in fixtures:
+        obs = m.to_observation_class(obs_dict)
+        if obs.select is None or not obs.select.option:
+            continue
+        ranked = m.rank_options(obs)
+        idxs = [i for _, i, _ in ranked]
+        check("rank_options is a permutation of all option indices",
+              sorted(idxs) == list(range(len(obs.select.option))),
+              f"{sorted(idxs)} vs {list(range(len(obs.select.option)))}")
+        scores = [s for s, _, _ in ranked]
+        check("rank_options is sorted best-first",
+              scores == sorted(scores, reverse=True), f"{scores}")
+        if obs.select.maxCount == 1:
+            check("rank_options head agrees with choose_options",
+                  m.choose_options(obs)[0] == idxs[0],
+                  f"{m.choose_options(obs)} vs {idxs[:1]}")
+        checked += 1
+        if checked >= 25:
+            break
+    print(f"        ({checked} states checked)")
+
+
 def main():
     m = _load_candidate()
     if m is None:
@@ -101,6 +129,7 @@ def main():
     else:
         test_profile_knob(m)
         test_classify_returns_name(m)
+        test_rank_options(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
