@@ -891,3 +891,67 @@ track for the Simulation deadline and shipping the best rule-based candidate (Ar
 `masamikobayashi_archaludon_cinderace`) as the Final Submission fallback, consistent with the third
 attempt's recommendation — surfaced to the user rather than acted on unilaterally, since it reverses
 the direction of the user's most recent explicit choice.
+
+### 2026-08-11 — intent-PIMC iteration gate, fifth attempt (PIMC noise-driven-override fix, pre-registered)
+
+User chose (via AskUserQuestion, after fourth attempt's FAIL) "Fix PIMC's noise-driven override
+problem" — the defect the fourth attempt's post-hoc investigation traced the dominant cause to
+(`mean_draws_per_line: 0.27`, overriding 26.3% of the time on near-zero real signal). Fix in
+`main.py` (gitignored, no commit ref): `PIMC_MARGIN` raised 0.15 -> 0.30; new
+`PIMC_MIN_DRAWS = 3`; every non-"base" classifier-favored intent must be confirmed by a paired
+`_pimc_score_lines` comparison against `"base"`, gated by both `PIMC_MIN_DRAWS` and `PIMC_MARGIN`,
+before `_committed["intent"]` is set to anything other than `"base"`.
+
+Regression test (`src/test_search_layer.py::test_override_requires_pimc_confirmation`) needed a
+rewrite before it could exercise the fix: `search_reorder` makes real, unmocked `cg` engine calls
+even in its lethal/veto probe pass, and a static JSONL fixture has no live battle session behind
+it, so every direct call raised, incremented `_search_stats["errors"]`, and returned
+`base_selected` before ever reaching the classifier/PIMC gate. Fixed by stubbing every engine
+touchpoint (`_search_begin_determinized`/`search_step`/`_rollout_our_turn`/
+`_rollout_our_turn_intent`/`_board_fingerprint`/`search_release`) and asserting on
+`_committed["intent"]` directly rather than the returned option list (a biased intent can
+legitimately pick the same first action as base while diverging later in the same turn — Task 8's
+own `test_intents` measures only ~32.5% divergence across sampled states, not 100%). Commit
+`07a237e`. Full suite (`python3 src/test_search_layer.py`) passes with 0 skips; `py_compile`
+clean; 20-battle smoke test clean.
+
+Same three pre-registered pass rules as all four prior attempts (baselines unchanged: Crustle
+33.5%, Alakazam 42.1%, mirror 50.0%, pooled 41.9%):
+1. Pooled win rate across the three matchups >= 47.0%.
+2. No single matchup regresses by more than 5pp against its baseline.
+3. `stats.game_capped == 0` and errors no worse than the Task 4 baseline.
+
+**Reading (2026-08-11):** `PTCG_SEARCH_PROFILE=fast python3 src/ladder_eval.py rate --candidate
+submissions/archaludon_intent --panel submissions/soutasakurai_libraryout_crustle
+submissions/biohack44_alakazam_dunsparce submissions/masamikobayashi_archaludon_cinderace --games
+1000 --workers 8 --json data/processed/ratings/archaludon_intent_gate5_pimcgate.json`, 3000 games
+total (1000/opponent), panel version `fa733a4e989a`:
+
+| opponent | wins/games | win% | 95% Wilson CI | baseline | delta |
+|---|---|---|---|---|---|
+| `soutasakurai_libraryout_crustle` | 349/1000 | 34.9% | [32.0, 37.9] | 33.5% | **+1.4pp** |
+| `biohack44_alakazam_dunsparce` | 423/1000 | 42.3% | [39.3, 45.4] | 42.1% | **+0.2pp** |
+| `masamikobayashi_archaludon_cinderace` (mirror) | 504/1000 | 50.4% | [47.3, 53.5] | 50.0% | **+0.4pp** |
+| **pooled (three matchups)** | 1276/3000 | **42.5%** | [40.8, 44.3] | 41.9% | **+0.6pp** |
+
+Battle-level errors: 0/1000 in every matchup. Local μ over this three-member field is 647.9
+(σ 19.0) — not comparable to seven-member panel numbers, not used for the verdict.
+
+**Verdict:**
+
+1. **Pooled win rate >= 47.0%: FAIL.** 42.5%, below the 47.0% threshold, +0.6pp over the pre-fix
+   baseline.
+2. **No single matchup regresses by more than 5pp: PASS.** All three matchups moved up slightly
+   (Crustle +1.4pp, Alakazam +0.2pp, mirror +0.4pp) — the first of the five gate attempts with no
+   regression anywhere.
+3. **`stats.game_capped == 0`, errors no worse than baseline: PASS.** 0/1000 errors in every
+   matchup.
+
+**Overall: FAIL (rule 1), but the mildest failure of the five attempts** — essentially baseline
+parity, no regression on any matchup, a clean recovery from the fourth attempt's −4.7pp
+regression. The fix did what it was diagnosed to do (stop overriding on near-zero PIMC signal) but
+recovering from a self-inflicted regression is not the same as clearing the +5pp bar over the
+pre-search baseline. This is the fifth consecutive failure of the pooled-≥47.0% pass rule across
+this investigation. Surfaced to the user for a decision on how to proceed, per this investigation's
+standing practice of never unilaterally deciding to stop or continue past a registered gate
+failure.
