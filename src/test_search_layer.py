@@ -71,12 +71,36 @@ def test_profile_knob(m):
           m.SEARCH_TIME_BUDGET > 0, f"got {m.SEARCH_TIME_BUDGET}")
 
 
+def test_classify_returns_name(m):
+    """_classify_opponent_archetype must report WHICH archetype matched, not just the decklist."""
+    fixtures = load_fixture("main_states_crustle.jsonl")
+    if not fixtures:
+        skip("classify returns archetype name", "no captured MAIN states")
+        return
+    named = 0
+    for obs_dict in fixtures:
+        obs = m.to_observation_class(obs_dict)
+        result = m._classify_opponent_archetype(obs)
+        check("classify returns a 3-tuple", len(result) == 3, f"got {len(result)}")
+        deck, seen, name = result
+        if deck is not None:
+            check("matched deck comes with a name", isinstance(name, str), f"got {name!r}")
+            check("name is a known archetype",
+                  name in m._ARCHETYPE_DECKS, f"got {name!r}")
+            named += 1
+        else:
+            check("unmatched deck reports no name", name is None, f"got {name!r}")
+        break  # one state is enough to pin the contract
+    print(f"        ({named} of 1 sampled states matched an archetype)")
+
+
 def main():
     m = _load_candidate()
     if m is None:
         skip("all", "submissions/archaludon_intent or the cg engine is missing")
     else:
         test_profile_knob(m)
+        test_classify_returns_name(m)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {FAILURES}")
