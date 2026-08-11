@@ -253,6 +253,50 @@ That measurement also sharpens the puzzle: the Dragapult fix alters behavior in 
 and moves local μ by 4.2, while the Archaludon fix alters behavior in 0% and "moved" the ladder
 63.4. The asymmetry is itself evidence the ladder deltas are noise-dominated.
 
+### Update (2026-08-10) — real submission table pulled, B1 frozen early, no clean noise pair yet
+
+`kaggle competitions submissions` gives current state, no slot spent:
+
+| ref | desc | status | μ |
+|---|---|---|---|
+| `55371582` (Arm C) | noise control | starved at upload+~24s | 600.0 (μ0, never played — confirmed dead) |
+| `55371585` (B1) | PLAY-priority fix | **frozen** at ~13h (displaced by `55389372`) | 646.2 |
+| `55371590` (B2) | hand_score-value fix | **live**, paired with `55389372` | 588.6 |
+| `55389372` | 3rd upload, bytes identical to `55330407` | live | 680.5 |
+| `55330407` | 2nd Archaludon hardening pass (frozen, older) | frozen | 711.4 |
+| `55336268` | pre-split Dragapult fix (frozen, older) | frozen | 688.0 |
+
+Upload timestamps (all 08-09) explain the starvation chain: C 07:32:32 → B1 07:32:44 → B2
+07:32:56 → `55389372` 20:42:34. Each new upload evicts the older of the active pair. C died in
+~24s (already known). B1+B2 ran together for **~13h** until `55389372` displaced B1; B2 has been
+paired with `55389372` since and is still accumulating.
+
+**The decision rule below cannot be applied as written.** It calls for ≥2 readings ≥24h apart per
+arm; B1 got exactly one reading, frozen at ~13h — short of a full settle, and it can never get a
+second, since it no longer receives episodes. B2 has one live reading past 24h elapsed and could
+still move. Reporting what the data actually supports rather than forcing it into the rule:
+
+- **B1 > B2 direction holds across two independent, differently-mature readings**: 108 μ at 6.5h,
+  now 57.6 μ at (13h frozen) vs (24h+ live). Same sign both times. Leaning real, not proven — the
+  gap nearly halved between readings, consistent with either genuine convergence or B1's early
+  freeze catching it before a regression to the mean.
+- **Both arms still read below the pre-split fix** (`55336268`, 688.0): B1 is 41.8 μ under, B2 is
+  99.4 μ under. The original fix-regression puzzle is not resolved — neither isolated mechanism
+  recovers the pre-fix score.
+- **New same-code data point, but not the clean design**: `55330407` (711.4) vs `55389372`
+  (680.5) is a 30.9 μ gap on byte-identical bytes. This is a re-upload-vs-old-reading comparison
+  (different time, possibly different field composition) — exactly the contaminated design the
+  plan below already flags as inferior to a true simultaneous pair. Treat as a second noisy data
+  point alongside the existing 63.4 μ one (`55327510` vs `55330407`), not as the clean noise-floor
+  measurement still pending (see next section). Both same-code gaps (63.4, 30.9) bracket the 41.8
+  μ B1-vs-prefix gap and roughly match the 57.6 μ B1-vs-B2 gap — i.e. **every effect measured so
+  far, including the "B1 > B2" one, is the same size as noise between identical bytes.** Directional
+  consistency across two readings is suggestive but not yet distinguishable from noise.
+
+No slot currently free to act (both active slots held by B2 and `55389372`). Next real step is the
+still-pending true simultaneous C/C' pair (below) once a slot opens — that is the only design left
+that can actually separate signal from this noise floor.
+
 ### Decision rules, written before the readings arrive
 
 Fixing these in advance so the verdict is not fitted to whatever number shows up. Take ≥2 readings
@@ -294,6 +338,177 @@ anything between those is ambiguous and will be reported as ambiguous.
 Afterwards, record all three arms via `src/calibration_tracker.py record` and re-run `report`.
 That adds up to 5 rows of *within-archetype small deltas*, the case where the n=5 calibration set
 currently has almost no power.
+
+## 2026-08-10 — forward-search (PIMC) layer: budget gate passed, mirror gate failed (not shipping)
+
+Followed the Orbit-Wars-derived plan (`.claude/plans/act-as-an-expert-flickering-pnueli.md`):
+harden `submissions/archaludon_search/main.py`'s existing `search_begin`/`search_step` layer with
+opponent-archetype determinization, a terminal-rollout (PIMC) evaluator replacing the old
+prizes-only `evaluate_board`, and `manual_coin=True`, instead of attempting RL (infeasible in 6
+days, no numpy in the sandbox).
+
+**Found and fixed a real, pre-existing bug first.** `read_deck_csv()` was missing the
+CLAUDE.md-documented `__file__`-based fallback branch. Locally this call sat inside
+`search_reorder`'s own `try/except`, so the resulting `FileNotFoundError` was silently swallowed
+and search fell back to `base_selected` — meaning **the entire pre-existing search layer was a
+permanent silent no-op in every local test run this repo has ever done** (`run_battle.py` and
+`ladder_eval.py` both load `main.py` via `importlib` without `chdir`-ing into the candidate's own
+directory, so relative `deck.csv` never resolved). The PIMC rewrite moved that same call outside
+its protecting `try/except`, which surfaced the bug as a ~50% win-rate collapse (full-random play
+on every exception) instead of a silent no-op — worse-looking, but that's what exposed it. Fixed
+by adding the missing fallback branch; any header-comment numbers from before this fix (e.g. the
+original file's claimed "found a winning line 253 times over 150 battles") should be treated as
+unverified.
+
+**Budget gate: passed.** Initial constants (`SEARCH_TIME_BUDGET=1.5s`, `PIMC_DETERMINIZATIONS=6`)
+only reached ~29-36 playouts/decision against real per-game search time of 22-55s — far under the
+300s/game cap, i.e. budget was sitting unused. Raised to `SEARCH_TIME_BUDGET=5.0s`,
+`PIMC_DETERMINIZATIONS=20`; re-measured at **113.7 playouts/decision**, 164.5s/game, 0
+`game_capped` hits — clears the ≥100 playouts/decision, <300s/game gate from the plan.
+
+Opponent determinization confirmed working against a real meta deck (`kiyota_dragapult_ex`):
+`archetype_matched` fired on effectively every PIMC playout once enough of the opponent's board
+was revealed.
+
+**Mirror gate: failed — do not ship.** Per the plan's own local-validation step, ran
+`archaludon_search` (PIMC-enabled) vs `masamikobayashi_archaludon_cinderace` (same deck, search
+off) via `ladder_eval.py rate --panel <baseline>`:
+
+- n=30 (first pass, noise): 30.0% win rate [16.7, 47.9] — looked like a real regression.
+- n=300 (follow-up): **49.7% win rate [44.0, 55.3]** — a dead heat. The n=30 reading was noise,
+  per the standing rule that small samples here are unreliable.
+
+Override rate was real and nonzero (~7-15% of MAIN decisions changed vs. base policy across
+smoke tests) but the net effect on win rate is statistically indistinguishable from zero. This
+does **not** clear the standing bar ("ship nothing expected to move less than ~100 μ" — a 65%+
+mirror win rate) and Task #6 (ship the Arm A/B ladder pair) is **not being executed today** as a
+result. Raw results: `data/processed/ratings/archaludon_search_pimc_v1.json`,
+`archaludon_search_pimc_mirror.json`.
+
+**Diagnosis complete — closing this experiment, not iterating further.** Instrumented per-game
+`_search_stats` deltas across 200 mirror games (script, not committed): PIMC overrides fired in
+only **11/200 games (5.5%)**, averaging **0.41 overrides/game** against ~51 MAIN decisions/game —
+**≈0.8% of decisions, under the plan's own "<2% override rate → stop, don't ship on faith"
+threshold.** Confirmed a second, independent mirror sample (n=150, `local_eval.py`) at 53.3%
+[45.4, 61.1] — combined with the earlier n=300 ladder_eval reading (49.7%), pooled mirror win rate
+across 450 games is 50.9%, solidly a tie.
+
+Root cause: the base heuristic policy is already close to locally-optimal in a mirror matchup
+(same deck both sides), so PIMC's "strict improvement over base" almost never finds one — there's
+little room left for a resampled-rollout evaluator to add value against an opponent this similar
+to ourselves. On the 11 games where it did override, win rate was numerically lower (36.4% vs
+50.3%, n too small to be conclusive) — directionally consistent with "these overrides are noise,
+not signal," not with "rare but decisive."
+
+**Decision: do not ship this layer, and do not invest further Phase-2 time scaling it** (wider
+candidate intents, deeper archetype library) — the bottleneck isn't playout budget or
+determinization quality, it's that the base policy leaves too little room for search to find
+anything in the matchup that matters most (mirror). This is a genuine negative result, logged in
+full per CLAUDE.md's "measure reachability before crediting or blaming a branch" discipline. No
+ladder slot spent on it.
+
+## 2026-08-10 — `probablity_v2` pre-flighted early, ahead of the 08-13/14 slot
+
+With the search-layer track closed and no ladder slot currently free (both active slots held by
+the live Dragapult B2/noise-pair arms — see above), used the dead time to do Phase 3's
+pre-submission hardening on `submissions/aristophanivan_probablity_v2/main.py` now rather than
+under deadline pressure on 08-13/14.
+
+Found a real sandbox risk, same failure class as the documented `__file__`/numpy gotchas:
+`main.py` ran `Path("deck.csv").write_text(...)` unconditionally at **import time**, writing a
+hardcoded 60-card `DECK` array over whatever `deck.csv` ships in the tar. If the real Kaggle
+sandbox's cwd isn't writable (untested, unknown either way), this throws before `agent()` is even
+defined — an immediate ERROR, exactly like the `il_agent_v2` numpy failure and the `__file__`
+`NameError` failure already on file. Checked the actual `deck.csv` against the hardcoded array
+first — byte-identical, so the write was always a no-op in practice, safe to neutralize. Wrapped
+it in `try/except OSError: pass`.
+
+Verified clean after the fix: `py_compile` passes; a 5-battle smoke run with `site-packages`
+stripped from `sys.path` (the actual test that would have caught the `il_agent_v2` ERROR before
+it cost a slot) completes with no import errors and no numpy/pandas dependency — pure stdlib +
+`cg`. `probablity_v2` is now ready to spend a slot on whenever the plan calls for it (08-13/14),
+with one fewer unverified assumption than before.
+
+**Decision (2026-08-10, same day): don't wait for 08-13/14 — spend the slot now.** With 6 days
+left and concurrency=2 (not the 5/day quota) as the real bottleneck, every hour spent waiting for
+a 2nd settled reading on a question we already have a decent read on is an hour not spent getting
+a first reading on the highest-uncertainty one. Explicit policy change from here: **act on first
+readings, don't insist on ≥2 readings ≥24h apart before making a call.** More noise accepted in
+exchange for more slots spent on genuinely open questions before the deadline.
+
+Closed the Dragapult B1/B2 thread on existing data rather than waiting for B2 to fully settle:
+both arms already read below the pre-split fix (`55336268`, 688.0) and both gaps are noise-floor
+sized (see the update above) — parking the Dragapult track on `55336268` as-is, no B1/B2 mechanism
+adopted, no further waiting on this thread.
+
+Submitted `probablity_v2` (ref `55409793`, 2026-08-10 14:52 UTC, PENDING). This starves
+`55371590` (B2, frozen final at 588.6) and pairs the new arm with `55389372` (Archaludon control,
+680.5 and still live) — real ladder data on `probablity_v2` arrives well ahead of the original
+08-13/14 slot. 4 submissions remaining today.
+
+**First real reading, same day: `probablity_v2` = 711.7 (COMPLETE).** Above its local
+frozen-panel estimate (647.6) and in Archaludon's real range — the local↔real gap this candidate
+has always shown (real badge 933.8) points the same direction again, though still well short of
+that badge. Now a genuine contender for the 2nd Final Submission slot.
+
+With `55389372` 18h old and having already given its noise-floor data point (680.5 vs 711.4,
+logged above), spent the freed slot on the other open question: `biohack44_alakazam_dunsparce`
+(Profile B), local frozen-panel μ 669.9 (3rd-best of the roster), never previously given a real
+reading. Pre-flighted identically to `probablity_v2` (py_compile, `__file__`-guard pattern check,
+stripped-`sys.path` 5-battle smoke test — all clean, no numpy). Submitted as `55409986`
+(2026-08-10 15:00 UTC, PENDING). This starves `55389372` (final at 680.5). Active pair is now
+`{55409793 probablity_v2, 55409986 alakazam_dunsparce}`. 3 submissions remaining today.
+
+**Both COMPLETE, same day:**
+- `alakazam_dunsparce` (`55409986`) = **720.4** — strong debut, above its own local estimate
+  (669.9) and above Archaludon's most recent reading (680.5), inside Archaludon's noisy historical
+  range (680.5-811.4). New contender for the 2nd Final Submission slot, real data where before
+  there was none.
+- `probablity_v2` (`55409793`) **moved from 711.7 to 659.4** — a 52.3 μ swing on the same
+  submission, within the established 24-63 μ noise floor but a reminder this is exactly the kind
+  of single-reading volatility the old "wait for settling" discipline existed to guard against.
+  Per the new faster-iteration policy this isn't being waited out further, but it's flagged
+  honestly: 659.4 is the number to use if a call has to be made right now, not 711.7.
+
+**Third open question, same day: `soutasakurai_libraryout_crustle`.** Its only real reading
+(553.8, `55308334`, 2026-08-06) predates a code change to `main.py` on 2026-08-07 — local μ is now
+685.7 (2nd-best of the roster), same "stale real score, improved code" shape that just paid off
+with `alakazam_dunsparce`. Pre-flighted (py_compile clean, no `__file__` dependency, stripped-
+`sys.path` smoke battle clean, no numpy) — the submission dir was missing its own loose `cg/`
+copy (packaging previously relied on it being supplied separately), added it back for consistency
+with the other candidate dirs. **Found, not fixed**: the exception-fallback path
+(`agent()`'s `except Exception`, when `select is None`) returns `read_deck_csv()` — a list of ~60
+card IDs — as the select list, which isn't a valid selection. Only reachable on exception +
+malformed `select`, and 24000 clean local games plus the existing real reading already prove the
+normal path works, so left as-is rather than spending time on an edge-case-of-an-edge-case.
+Submitted as `55416420` (2026-08-10 21:22 UTC, PENDING), evicting `probablity_v2` (starved final
+at 659.4, one reading only — re-testable later since concurrency, not the daily quota, is the
+binding constraint). Active pair: `{55409986 alakazam_dunsparce, 55416420 crustle}`. 2 submissions
+remaining today.
+
+**Second readings, next day (2026-08-11):**
+- `crustle` (`55416420`) **moved from 686.7 to 743.3** — a 56.6 μ swing, inside the 24-63 μ noise
+  floor but wide enough that the earlier "matched local almost exactly" observation is retracted:
+  that was a lucky single reading, not crustle being unusually low-noise. Now clearly the leading
+  candidate for the 2nd Final Submission slot, ahead of Archaludon's most recent reading (680.5)
+  and its two peak readings' neighborhood (774.8/811.4).
+- `alakazam_dunsparce` (`55409986`) **moved from 720.4 to 712.4 to 698.2** — a steady downward
+  drift, still noise-floor-sized swing-to-swing, still above its own local estimate (669.9) on
+  every reading so far.
+- Gap between the two is now 45.1 μ (crustle ahead) — noise-floor-sized, not yet a settled
+  verdict, but the largest gap observed between them.
+
+**Decision: no further slot spend on this comparison.** The active concurrency pair
+(`alakazam_dunsparce` + `crustle`) already produces a free repeated A/B every time the ladder
+updates — no synthetic noise-floor pair (two identical tarballs back to back) is needed to learn
+whether the gap is signal, since two independently-drifting live candidates already demonstrate
+the noise floor in action. General principle worth keeping: **when the two occupied concurrency
+slots are already the comparison you care about, every subsequent reading is a free data point —
+don't spend a 3rd slot to manufacture a comparison you're already running.** Nothing else in the
+roster clears the bar for a slot right now: Mega Lucario (local μ 590.8) is weaker than every
+active candidate, the IL track and the PIMC search layer are both closed negative results, and
+`probablity_v2` (659.4, lowest of the three newly-real-tested candidates) is lower priority than
+watching the current pair settle.
 
 ## Known constraints to keep in mind throughout
 
