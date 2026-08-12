@@ -123,9 +123,36 @@ def test_hero_cape_bench_duraludon(m):
           score < alt_score, f"got score={score} reason={reason!r} alt_score={alt_score}")
 
 
+def test_lillie_boss_paralysis(m):
+    """Worklist #4 (crustle, turn 10, gap 2.0): chosen_option=5 (ATTACK now, score 220)
+    outranked best_alt_option=1 (PLAY Lillie's Determination, score -500).
+
+    score_play's LILLIE branch deferred to Boss's Orders on the bare combination of "Boss is in
+    hand" and "an attacker is ready" (`BOSS in ids and planned_archaludon_attacks(obs)`), without
+    checking whether Boss would actually do anything this turn. In this fixture Boss's own branch
+    independently scores itself -500 ("save Boss: can KO Active" -- no lethal target this turn),
+    yet Lillie's guard fired anyway on the same board state, so *neither* supporter got played:
+    a "supporter paralysis" missing-case bug, not archetype-specific. Gated the guard on
+    `_boss_has_lethal(obs)` -- the same lethal-only conditions Boss's own scorer uses to return
+    20000/"LETHAL Boss" -- so Lillie is only held back when Boss would genuinely be worth playing
+    instead."""
+    fixture = load_fixture("crustle_turn10.json")
+    if fixture is None:
+        skip("lillie_boss_paralysis", "fixture not captured")
+        return
+    obs = m.to_observation_class(fixture)
+    chosen_opt = obs.select.option[5]
+    alt_opt = obs.select.option[1]
+    score, reason = m.score_option(obs, chosen_opt)
+    alt_score, _ = m.score_option(obs, alt_opt)
+    check("lillie_boss_paralysis no longer over-scores the blunder option",
+          score < alt_score, f"got score={score} reason={reason!r} alt_score={alt_score}")
+
+
 def run_all_tests(m):
     test_lillie_shuffle_energy(m)
     test_hero_cape_bench_duraludon(m)
+    test_lillie_boss_paralysis(m)
 
 
 if __name__ == "__main__":
