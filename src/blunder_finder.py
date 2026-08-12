@@ -108,14 +108,24 @@ def _worker_init(engine_dir, cand_dir, opp_dir, profile):
     _STATE["opp_deck"] = rb.load_deck(Path(opp_dir))
 
 
-def _base_agent_move(cand, obs_dict):
-    """`archaludon_intent.agent()`'s bookkeeping and fallback, without the search_reorder call."""
+def _base_agent_move(cand, oracle, obs_dict):
+    """`archaludon_intent.agent()`'s bookkeeping and fallback, without the search_reorder call.
+
+    Mirrors the same tracking update onto `oracle` (a separately-loaded module instance with its
+    own globals) so `oracle._opp_last_attack_id`/`_cur_turn_logs` stay in sync with the game the
+    candidate is actually playing -- otherwise `oracle.rank_options`/`_pimc_score_lines` (and the
+    rollout plies that read them) would silently score every decision as if the opponent had never
+    attacked.
+    """
     obs = cand.to_observation_class(obs_dict)
     if obs.select is None:
         cand._opp_last_attack_id = None
         cand._cur_turn_logs.clear()
+        oracle._opp_last_attack_id = None
+        oracle._cur_turn_logs.clear()
         return cand.read_deck_csv()
     cand._update_opp_attack_tracking(obs)
+    oracle._update_opp_attack_tracking(oracle.to_observation_class(obs_dict))
     if not obs.select.option:
         return []
     try:
@@ -186,7 +196,7 @@ def _play_one(cand, oracle, opp, cand_deck, cand_first, game_id, records):
         while obs["current"]["result"] == -1:
             actor = obs["current"]["yourIndex"]
             if actor == cand_index:
-                chosen = _base_agent_move(cand, obs)
+                chosen = _base_agent_move(cand, oracle, obs)
                 diag = _diagnose_decision(oracle, cand_deck, obs, chosen)
                 if diag is not None:
                     diag["game_id"] = game_id
