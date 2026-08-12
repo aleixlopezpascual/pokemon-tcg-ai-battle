@@ -1595,3 +1595,24 @@ would overturn these results — see review findings in this file's git history 
 package at `.superpowers/sdd/humming-waddling-duckling/review-c89cd91..1343b93.diff` for detail if
 needed later. Two corrections the review surfaced are folded into the L5 section above and the
 do-not-submit markers here.
+
+## 2026-08-12 — L6 forks submitted anyway, per user direction (local/real calibration mismatch)
+
+User instruction: submit some locally-failed/washed candidates for real reading anyway, since local
+μ is documented to diverge from (or invert vs) real ladder for exactly these two archetypes
+(`evaluation-methodology.md` calibration table, n=5, Spearman ρ=+0.800, not significant at
+p=0.133). A local FAIL/wash does not conclusively rule out a real-ladder improvement. This
+supersedes the "DO NOT SUBMIT" markers above for these two specific forks only — the local
+measurement stands as recorded; only the submit decision changed.
+
+| Ref | Date | Description | Status | μ |
+|---|---|---|---|---|
+| `55459427` | 2026-08-12 13:23 UTC | `kiyota_mega_lucario_ex_l6deck` — L6 deck-mining fork (cluster 244 sides/63.9% WR, jaccard 0.714). Local μ 573.5 vs parent 582.4 (Δ −8.9, inside 25μ noise, a wash). Archetype's real/local relationship: real ladder (439.9-450.9) much *lower* than local (~582-591). | COMPLETE | pending stabilization (first read 600.0) |
+| `55459429` | 2026-08-12 13:23 UTC | `kiyota_dragapult_ex_l6deck` — L6 deck-mining fork (cluster 142 sides/62.7% WR, jaccard 0.739). Local μ 500.9 vs parent 617.3 (Δ −116.4, clear regression, outside noise band). Archetype's real/local relationship: **inverted** — real ladder (698.5) *higher* than local (615.9-617.3). Uploaded last per "arm that matters most reads last" convention. | COMPLETE | pending stabilization (first read 600.0) |
+
+**Quota for 2026-08-12: 2 remaining today.** Both new refs now occupy the 2 active/episode-accumulating
+slots, displacing `55453383` (archaludon_lossfix, 603.8) and `55416420` (soutasakurai_libraryout_crustle,
+744.6, our best real reading) from that pair — those two keep their last-known readings but stop
+accumulating episodes until re-uploaded. Check back for a settled 2nd reading on both new refs before
+drawing any conclusion; per project convention, act on the first reading rather than waiting indefinitely,
+but note the initial "600.0" is a shared placeholder for both and not yet informative.
