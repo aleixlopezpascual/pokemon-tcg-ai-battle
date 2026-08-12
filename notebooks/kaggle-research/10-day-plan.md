@@ -1232,8 +1232,9 @@ cost — offline replay against `data/processed/selfplay_crustle/` shards, no mi
 
 **Root-cause (offline replay of the full MAIN scorer, 20,000 harvested states):** conditional on
 ATTACH being legal, the agent already picks it 49.7% of the time (matches the audit's
-12.47/24.85 = 50.2%). Of the decisions it loses, only 7.75% lose by <=50,000 points and only 1.3%
-by <=20,000 — the reachable "close call" pool is thin. The bulk of ATTACH's losses are by
+12.47/24.85 = 50.2%). Of the decisions it loses (1,634 of 3,250 ATTACH-available states), only
+15.4% (252) lose by <=50,000 points and only 2.6% (42) by <=20,000 — the reachable "close call"
+pool is thin. The bulk of ATTACH's losses are by
 100,000+ points to `RETREAT`, `EVOLVE` (wall mode), or high-tier `PLAY`/`ATTACK` options. Reaching
 a 5% global change rate requires flipping decisions in that bulk, which means crossing
 `RETREAT`'s survival tier (125000/130000) and `EVOLVE`'s wall-evolution tier (130000) — a
