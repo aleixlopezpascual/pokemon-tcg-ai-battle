@@ -1454,3 +1454,50 @@ force a pass. This lands within the plan's own stated ~15% prior odds of this le
 a miss was the modal outcome going in. **Next: Task 10's fallback lever list (L5/L6/L7)** — no
 agent code was touched by this task. Commit: `a369ead` (`src/eval_class_prior.py`). Full numbers
 and methodology also in `.superpowers/sdd/humming-waddling-duckling/task-8-report.md`.
+
+### 2026-08-12 — Task 10, Lever L5 — Step 0: signature-deduplicated tie reachability, measured before any dataset/model
+
+L5's plan-table pitch is to drop the class prior and train an option-level tiebreaker on tied
+sets, deduped by `features._option_signature` (the exact fix for the counting flaw Task 6's
+root-cause found: raw tie counts by option *type* overstate the reachable pool because most ties
+are duplicate options indifferent by construction). Per the brief, this step is measurement-only
+— confirm a real reachability signal exists across **all** option classes (not just ATTACH/PLAY,
+already known thin from Task 6) before writing any dataset builder or trainer, mirroring how
+Tasks 5 and 6 both stopped immediately on a failed reachability reading.
+
+Script: `src/measure_tie_signature_reachability.py` (new). Reuses `audit_main_decisions.score_probe`/
+`_load_module` (loads the **base** agent, `submissions/soutasakurai_libraryout_crustle`) and
+`features.option_features`/`_option_signature` unmodified — no scoring or dedup logic
+reimplemented. Same unfiltered 5,000-state sample as `test_prior_identity.py` and Task 6's own
+instrumentation (`data/processed/selfplay_crustle/shard_*.jsonl`, no MAIN/`maxCount==1` filter).
+For each state: capture the real score vector, find the top-tied index set (exact integer
+equality — confirmed no floats in any of `main.py`'s `score = ` assignments), and dedupe the tied
+options by `_option_signature`; a tie counts as genuinely reachable only if it collapses into
+**2+** distinct signature groups.
+
+**Reading:**
+
+| bucket | count | % of examined (5000) |
+|---|---|---|
+| degraded | 0 | 0% |
+| no_tie | 3913 | 78.26% |
+| tie_but_indistinct | 785 | 15.70% |
+| **tie_and_distinct** | **302** | **6.04%** |
+
+Per-class breakdown of the 302: **OPT_CARD 191 (3.82%)**, OPT_ATTACH 64 (1.28%), OPT_PLAY 28
+(0.56%), OPT_ENERGY 1 (0.02%); cross-class PLAY+EVOLVE 17 (0.34%), ATTACH+EVOLVE 1 (0.02%).
+`chosen[0]` matched the lowest tied index in 302/302 cases (confirms the stable-sort assumption).
+
+**Verdict: PASS — 6.04% >= the 5% floor** Task 5's L0 and Task 6's L0b were both held to and both
+failed. Notably the reachable pool is **not** where the plan's lever ordering expected: it is
+dominated by OPT_CARD (deck-search/looking-zone/bench-select decisions routed through the same
+single `sorted()` call as MAIN options, 63% of the reachable pool) rather than EVOLVE (the
+nominally-next lever slot) or the already-probed ATTACH/PLAY pair. Per the brief's own stop rule,
+this measurement is the complete deliverable for this step either way — no dataset builder or
+model was written. If a follow-up task is scoped to actually build L5, it should target OPT_CARD
+first, not EVOLVE. Full numbers, per-class methodology notes, and a cross-check against Task 6's
+independently-measured PLAY figure (28, exact match) are in
+`.superpowers/sdd/humming-waddling-duckling/task-10-L5-report.md` and
+`data/processed/instrumentation/tie_signature_reachability.json` (both untracked/local, per this
+repo's convention for scratch reports and instrumentation JSON — see the report for the
+`.gitignore` check that established this).
