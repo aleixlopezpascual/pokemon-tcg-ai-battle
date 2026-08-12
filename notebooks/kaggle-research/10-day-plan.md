@@ -1517,6 +1517,13 @@ Per-class breakdown of the 302: **OPT_CARD 191 (3.82%)**, OPT_ATTACH 64 (1.28%),
    deck-search/looking-zone/bench-select decisions, not MAIN PLAY/ATTACH/EVOLVE turn choices. If
    scoped as a follow-up, it should be gated as its own candidate (e.g. "L5-CARD"), not folded
    into L5's original framing.
+   **Correction (final whole-branch review, 2026-08-12):** the "broader PASS" and the deferred
+   "L5-CARD" opportunity are not the same population. The 5.62-6.04% PASS is *all contexts*
+   (MAIN's 110 + non-MAIN's ~171-191). The actual scope of a standalone "L5-CARD" lever is
+   *non-MAIN only*: 281 (genuinely-resolved, all-context) − 110 (MAIN-only) = **171/5000 = 3.42%**,
+   which **also fails** the 5% floor on its own. There is no untried tiebreaker lever that clears
+   the floor standing alone — only the artificial union of two failing populations does. Do not
+   read this section as "a real opportunity was left on the table."
 
 Per the brief's stop rule, no dataset builder or model was written for either scope — this
 measurement is the complete deliverable. Full numbers, both review-finding breakdowns, and the
@@ -1526,3 +1533,65 @@ per-class methodology notes are in
 repo's convention for scratch reports and instrumentation JSON — see the report for the
 `.gitignore` check that established this). Commits: `a36e716` (initial 6.04%-only measurement),
 plus a follow-up commit addressing the two review findings above.
+
+### 2026-08-12 — Task 10, Lever L6 — deck mining: swap in a higher-WR corpus decklist — FAIL
+
+L5 failing (both scopes measured above) routes to L6 per the plan's lever table: "deck mining,
+not policy imitation … needs no IL to work at all." The plan's own L6 row cited specific numbers
+(cluster 6, 288 sides/64.6% WR, matching `kiyota_mega_lucario_ex`; cluster 16, 47 sides/63.8% WR)
+from an earlier, uncaptured session — these were confirmed unreproducible (no match anywhere in
+`notebooks/`/`docs/`) and re-derived live rather than assumed.
+
+Script: `src/measure_deck_cluster_candidates.py` (new). Streams
+`data/processed/il_records_v3_combined.jsonl` (2.9GB) **once** via `deck_meta.stream_records`,
+filters `actor_score >= 1100`, clusters at `threshold=0.7` via `deck_meta.cluster_decks`, keeps
+clusters with `games >= 30` and `win_rate >= 0.60`, then matches every `submissions/*/deck.csv`
+(globbed, not hardcoded — all 18 checked) against the qualifying clusters via
+`deck_meta.jaccard` (multiset) at a `>= 0.6` match floor, entirely in-memory (no re-streaming per
+candidate).
+
+**Reading:** 13 total clusters, 3 qualifying (games≥30, WR≥60%): rank 0 = 244 games/63.9%
+WR/μ1201.0, rank 1 = 142 games/62.7% WR/μ1158.9, rank 2 = 47 games/63.8% WR/μ1227.6 (no submission
+matched rank 2). 7 submission matches at jaccard≥0.6, all against ranks 0-1:
+`kiyota_mega_lucario_ex` (jaccard 0.714, cluster 0) and `kiyota_dragapult_ex` (jaccard 0.739,
+cluster 1, tied with its own `_b1_play_priority`/`_b2_gate_value` forks which share an identical
+deck.csv — treated as one candidate). Both are the exact two archetypes the plan's own L6 row
+named, independently re-confirmed rather than assumed.
+
+Built two deck-swapped forks (`submissions/kiyota_mega_lucario_ex_l6deck`,
+`submissions/kiyota_dragapult_ex_l6deck`; `main.py` unmodified, only `deck.csv` swapped to the
+cluster's representative deck), smoke-tested clean (zero errors, non-degenerate win rates), then
+measured local panel μ at 4000 games/8 workers for stock vs. swapped-deck on each — the plan's
+falsifier, gated against the established 25 μ noise band:
+
+| candidate | stock μ | swapped μ | Δ | vs. 25μ noise band |
+|---|---|---|---|---|
+| `kiyota_mega_lucario_ex` | 582.4 | 573.5 | −8.9 | inside noise (wash/slight regression) |
+| `kiyota_dragapult_ex` | 617.3 | 500.9 | −116.4 | **clear regression**, well outside noise |
+
+**Verdict: FAIL for both qualifying pairs.** Neither swap improved over its own archetype's stock
+deck; the plan's 2-iteration cap is exhausted with no further qualifying pairs to try. The
+dragapult regression plausibly traces to losing the `Rare_Candy` evolution-acceleration card in
+the swap, not a dead-card removal — i.e. this falsifies "swap a corpus deck under an unmodified
+archetype agent," not "the corpus deck is intrinsically worse." Local/real calibration caveat
+noted per the brief but moot: both readings fail by a wide enough local margin either way.
+**Local/real caveat for completeness:** `kiyota_dragapult_ex` local μ has a documented *inverted*
+real-ladder relationship (local 615.9-617.3 vs. real 698.5) and `kiyota_mega_lucario_ex` local is
+*much higher* than its own real reading (local ~582-591 vs. real 439.9-450.9), per
+`evaluation-methodology.md`'s calibration table (n=5, not statistically significant).
+
+**⚠️ DO NOT SUBMIT `submissions/kiyota_mega_lucario_ex_l6deck` or
+`submissions/kiyota_dragapult_ex_l6deck`** — both measured worse than the stock archetype they
+were forked from. Full report: `.superpowers/sdd/humming-waddling-duckling/task-10-L6-report.md`
+(untracked, per repo convention). Commits: `02549a9`, `8a53125` (mega_lucario fork), `2dd72e9`,
+`c201ccb` (dragapult fork), `1343b93` (measurement script).
+
+**Levers exhausted:** L0, L0b, L1-L4 (skipped via Task 8's triple gate failure), L5, and L6 have
+all failed or been ruled out. Per the plan's lever table, this routes to **L7**: stop mechanism
+work, resubmit for live readings, and spend the remainder on Final-Submission selection between
+Crustle (746.9) and Archaludon (694.2). A final whole-branch code review of the entire
+`crustle_il` effort (commits `c89cd91..1343b93`) found no bug in any measurement instrument that
+would overturn these results — see review findings in this file's git history / the review
+package at `.superpowers/sdd/humming-waddling-duckling/review-c89cd91..1343b93.diff` for detail if
+needed later. Two corrections the review surfaced are folded into the L5 section above and the
+do-not-submit markers here.
