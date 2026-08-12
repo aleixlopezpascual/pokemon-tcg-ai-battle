@@ -93,8 +93,39 @@ def test_lillie_shuffle_energy(m):
           score < alt_score, f"got score={score} reason={reason!r} alt_score={alt_score}")
 
 
+def test_hero_cape_bench_duraludon(m):
+    """Worklist #2 (crustle, turn 6, gap 2.0): chosen_option=5 (ATTACH Hero's Cape to a
+    fully-energized BENCH Duraludon) outranked best_alt_option=6 (END turn).
+
+    Two compounding bugs, both real and both generalizable past this one archetype:
+
+    1. `score_attach`'s HERO_CAPE branch grants its +8000 "Hero's Cape on Duraludon" bonus for
+       any Duraludon target with >=1 energy, without checking whether the target is the ACTIVE
+       Pokemon (the one actually taking damage / attacking) or a benched one that isn't exposed
+       yet -- a missing case, not archetype-specific.
+    2. `apply_overrides`'s Crustle-only "Crustle: bench Duraludon energy priority" ATTACH bonus
+       (+10000) fires for *any* card attached to a bench Duraludon, even though its own reason
+       string says "energy priority" -- it never checks `cid == METAL_ENERGY`, so it also boosts
+       an unrelated Tool card (Hero's Cape) by the same +10000, compounding bug 1.
+
+    Together these turned a should-be-saved Hero's Cape (better held for when a Pokemon is
+    actually active/exposed) into an 18000-scoring "priority" play, beating END turn (0)."""
+    fixture = load_fixture("crustle_turn6.json")
+    if fixture is None:
+        skip("hero_cape_bench_duraludon", "fixture not captured")
+        return
+    obs = m.to_observation_class(fixture)
+    chosen_opt = obs.select.option[5]
+    alt_opt = obs.select.option[6]
+    score, reason = m.score_option(obs, chosen_opt)
+    alt_score, _ = m.score_option(obs, alt_opt)
+    check("hero_cape_bench_duraludon no longer over-scores the blunder option",
+          score < alt_score, f"got score={score} reason={reason!r} alt_score={alt_score}")
+
+
 def run_all_tests(m):
     test_lillie_shuffle_energy(m)
+    test_hero_cape_bench_duraludon(m)
 
 
 if __name__ == "__main__":
