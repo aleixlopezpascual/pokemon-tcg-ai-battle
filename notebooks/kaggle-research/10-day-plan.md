@@ -1114,3 +1114,58 @@ project). Active pair is now `{55416420 crustle, <new> archaludon_lossfix}`.
 Per `evaluation-methodology.md`'s retro-validation finding, the local frozen-panel gate has twice
 sign-flipped or badly underestimated real-ladder results for fixes of this size and shape — this
 submission is exactly that bet: local read parity, real read unknown until it settles.
+
+## 2026-08-12 — Task 3 (crustle_il plan): Crustle MAIN-decision audit, sets the L0/L0b target
+
+New effort, separate from the `archaludon_intent` PIMC saga above: implementing the Orbit Wars
+2nd-place recipe (rating+behavior-filtered IL, shrunk label space) on a `crustle_il` fork of
+`soutasakurai_libraryout_crustle` (see plan `humming-waddling-duckling.md`). Task 3 re-measures
+the margin/tie/class-mix numbers on Crustle before picking a lever — the previously published
+numbers (margin 21.5% tie rate, 8.75pp TV distance, etc.) were all measured on Archaludon and do
+not transfer, since Crustle's scorer uses a much wider tier ladder (130000/90000/80000/42000/
+12000/2000/100) than Archaludon's continuous-ish scale.
+
+**Method:** harvested 400 games x 6 panel opponents = 2,400 games of Crustle self-play
+(`data/processed/selfplay_crustle/`, 122,414 dumped records, local mu 685.6). Built
+`src/audit_main_decisions.py`: monkey-patches the single `sorted(` call at
+`submissions/soutasakurai_libraryout_crustle/main.py:1233` to capture the real per-option score
+vector the agent computed, without reimplementing any of its scoring logic. Replayed all 79,041
+eligible MAIN decisions (`context==MAIN`, `maxCount==1`, `>1` option). `degraded=0, no_choice=0`
+across all of them — the audit measures the real, undegraded policy.
+
+**Class mix, chosen vs. expert corpus (Jaccard >= 0.30, n=20,436):**
+
+| class    | Crustle (chosen) | expert | gap             |
+|----------|-------------------|--------|-----------------|
+| PLAY     | 47.23%           | 40.0%  | +7.23pp         |
+| ATTACH   | 12.47%           | 21.1%  | **-8.63pp (largest)** |
+| ATTACK   | 12.44%           | 13.2%  | -0.76pp         |
+| END      | 18.99%           | 11.6%  | +7.39pp         |
+| ABILITY  | 3.85%            | 9.5%   | -5.65pp         |
+| EVOLVE   | 4.98%            | 4.4%   | +0.58pp         |
+| RETREAT  | 0.04%            | 0.1%   | -0.06pp         |
+
+Total variation distance ~= **15.2pp**. **L0 target: ATTACH, underused by 8.63pp** — the single
+largest gap where the agent under-uses relative to experts.
+
+**Tie report (L0b target):** 86.0% of decisions have a unique top score. 14.0% (11,079) are tied;
+93.5% of those (10,357, 13.1% of all decisions) are within-class ties — PLAY 4,149, ATTACH 4,248,
+EVOLVE 1,960 — resolved today by nothing but Python's stable-sort lowest-index tie-break, not any
+deliberate preference. Zero within-class ties for ATTACK/END/ABILITY/RETREAT. The remaining 722
+(0.9%) are cross-class ties (margin exactly 0).
+
+**Margin reachability envelope (for `PRIOR_MARGIN`):** 97.89% of decisions have a cross-class
+margin >=5000 — Crustle's scores are separated fixed tiers, not a continuous scale, so a
+margin-threshold lever has almost no reachable population (only 2.11% of decisions fall under
+margin 5000, 0.91% are exact ties). This is a materially different reachability profile than
+Archaludon's.
+
+**Hand-off note (informational, not yet acted on):** since 97.9% of decisions aren't close cross-
+class calls, the ATTACH class-mix gap is not well explained by score-margin proximity — the more
+promising near-term lever is the within-class tie axis (PLAY/ATTACH/EVOLVE, 13.1% of all
+decisions) rather than a margin-threshold rerank. Both L0 (ATTACH class-mix rule edit) and L0b
+(within-class tiebreaks) remain live options per the plan; Task 5 picks between them.
+
+Commit: `1876a98` (`src/audit_main_decisions.py`, `src/test_audit_main_decisions.py`). Full
+numbers and the harvest command also in the commit message and
+`.superpowers/sdd/humming-waddling-duckling/task-3-report.md`.
