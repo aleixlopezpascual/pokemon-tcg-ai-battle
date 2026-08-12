@@ -1371,3 +1371,86 @@ ties, so the *true* reachable pool for any deterministic tiebreak is much smalle
 MAIN decisions — applies to the remaining EVOLVE pool (1,960) too and is worth flagging for
 whatever comes after Task 6. Full instrumentation numbers and methodology are also in
 `.superpowers/sdd/humming-waddling-duckling/task-6-report.md`.
+
+### 2026-08-12 — Task 8 (crustle_il plan): class-prior offline trainer — three pre-registered go/no-go gates
+
+Task 7's real dataset build undershot: the deck-scoped variant (Crustle, jaccard >= 0.30, floor
+1100) came in at 4,445 rows / 118 episodes, under Task 7's own ~5,000-row underpowered threshold,
+so per Task 7's fallback the **pooled** corpus at floor 1100 was trained on instead — **91,131
+rows, 1,488 episodes** (`data/processed/main_class_pooled_1100.jsonl`), no deck filter, with each
+row's `side_jaccard` (its own Crustle-deck jaccard, computed against
+`submissions/crustle_il/deck.csv`) carried as a 36th input feature alongside the 35
+`decision_features` columns (reused from Task 7's `src/build_main_class_dataset.py`, not
+reimplemented). Trainer: `src/eval_class_prior.py`
+(`HistGradientBoostingClassifier(max_iter=300, max_depth=6, learning_rate=0.08,
+class_weight="balanced", random_state=0)`, `GroupShuffleSplit(test_size=0.2, random_state=0)`
+grouped on `episode_id`, mirroring `src/train_intent_classifier.py`'s setup verbatim).
+
+**Pass rules (restated before the readings, verbatim from the brief):**
+
+1. **G3a — informativeness.** Masked top-1 accuracy (argmax restricted to the classes legal in
+   that decision) must exceed `availability_baseline` ("predict the marginal-most-common legal
+   class", computed per-decision since different decisions have different legal sets) by **>=
+   5.0pp**.
+2. **G3b — transfer.** Retrain holding out one whole deck cluster; masked top-1 on the held-out
+   cluster must retain **>= 60%** of the in-distribution (G3a) lift.
+3. **G3c — disagreement.** On the Task 3 replayed Crustle self-play states
+   (`data/processed/selfplay_crustle/shard_*.jsonl`, 122,414 records, 79,041 MAIN-eligible —
+   confirmed to reproduce Task 3's own audit exactly, matching
+   `data/processed/instrumentation/crustle_main_audit.json`'s `stats.examined`/`stats.eligible`),
+   the model's masked argmax must disagree with the agent's chosen class on **8-35%** of
+   decisions. Crustle's own measured chosen-vs-expert total variation distance from Task 3 is
+   **~15.2pp** (line 1148 above) — inside the 8-35% band used to frame this gate (the fixed
+   pass/fail rule itself doesn't depend on this number, it's context for why 8-35% is the
+   plausible-win zone: below it there's nothing to move, above it it's a different policy).
+
+**G3b's held-out cluster:** deck clusters were mined from the same floor-1100 population used to
+build the pooled dataset (`_qualifying_sides`/`_assign_clusters` in `eval_class_prior.py`, greedy
+clustering via `deck_meta.jaccard` at threshold 0.7 — same algorithm as `deck_meta.cluster_decks`,
+extended to expose the per-side cluster assignment that function doesn't return). 24 clusters
+found. The **2nd-largest** cluster was held out (387 sides / 362 episodes / 24 distinct teams,
+jaccard-to-Crustle-ref 0.132) rather than the largest (549 sides), so the biggest cluster stays in
+the training pool as an anchor and the remaining training set stays large and multi-cluster —
+deliberately the *friendliest* possible transfer test (a shift between two large, well-represented
+clusters), per the brief's own framing: if the prior can't survive that, it won't survive the
+harsher ~0.35-Jaccard gap to our real deck. Of the held-out cluster's 362 touched episodes, 182 are
+"pure" (every qualifying side in that episode is the held-out cluster, so no cross-deck
+contamination) — those 182 episodes (11,461 rows) are the G3b test set; all 362 touched episodes
+(26,324 rows) were excluded from the G3b retrain, leaving 64,807 training rows.
+
+**Readings (2026-08-12):**
+
+| gate | metric | value | rule | result |
+|---|---|---|---|---|
+| G3a | masked top-1 accuracy | 59.5% (n=18,300) | — | — |
+| G3a | availability_baseline | 56.6% | — | — |
+| G3a | lift | **2.96pp** | >= 5.0pp | **FAIL** |
+| G3b | masked top-1 on held-out cluster | 48.4% (n=11,461) | — | — |
+| G3b | availability_baseline on held-out cluster | 60.1% | — | — |
+| G3b | held-out lift | **-11.73pp** | — | — |
+| G3b | retention of in-distribution lift | **-395.9%** | >= 60% | **FAIL** |
+| G3c | disagreement rate | **46.6%** (36,823/79,041) | 8-35% | **FAIL** |
+
+**Verdict:**
+
+1. **G3a (informativeness) in [5.0pp, +inf): FAIL.** 2.96pp, close to but short of the floor —
+   the same failure mode the brief warned about by name (the Track-2 intent classifier's 85.7%
+   vs. 87.7% baseline gap that "shipped anyway" and shouldn't be repeated).
+2. **G3b (transfer) in [60%, 100%]: FAIL, badly.** Not just below the retention floor — the
+   held-out-cluster lift is **negative** (masked accuracy *worse* than the per-decision
+   availability baseline on the held-out cluster), meaning the model actively hurts relative to
+   the simple heuristic once the deck distribution shifts, even under the friendliest
+   two-large-clusters framing chosen above.
+3. **G3c (disagreement) in [8%, 35%]: FAIL, on the high side.** 46.6% disagreement is well past
+   "a different policy" territory — a model trained on the pooled cross-deck corpus, applied to
+   Crustle's specific self-play states, changes nearly half the decisions it would make. Combined
+   with #2, this is consistent with the same underlying story: the pooled training distribution is
+   too far from Crustle's actual policy/deck for this class prior to transfer usefully.
+
+**Overall: FAIL — all three gates fail.** Per the plan's pre-registered rule ("all three gates
+must pass, if any fails do not train more models — go to Task 10's lever list"), the class-prior
+ML lever is abandoned here, honest numbers reported as measured, no tuning/refitting attempted to
+force a pass. This lands within the plan's own stated ~15% prior odds of this lever clearing gate;
+a miss was the modal outcome going in. **Next: Task 10's fallback lever list (L5/L6/L7)** — no
+agent code was touched by this task. Commit: `a369ead` (`src/eval_class_prior.py`). Full numbers
+and methodology also in `.superpowers/sdd/humming-waddling-duckling/task-8-report.md`.
