@@ -214,7 +214,7 @@ def load_deck_csv(path: Path) -> list[int]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--records", required=True)
-    parser.add_argument("--min-score", type=float, default=0.0,
+    parser.add_argument("--min-score", type=float, default=None,
                         help="Only count episode sides whose actor_score is at least this.")
     parser.add_argument("--threshold", type=float, default=0.7)
     parser.add_argument("--min-games", type=int, default=3,
@@ -224,7 +224,7 @@ def main() -> int:
     args = parser.parse_args()
 
     records = stream_records(Path(args.records))
-    if args.min_score:
+    if args.min_score is not None:
         records = (r for r in records
                    if r.get("actor_score") is not None and r["actor_score"] >= args.min_score)
 
