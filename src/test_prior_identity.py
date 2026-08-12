@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -50,8 +51,9 @@ def main():
         return
     base, fork = load_pair()
     diffs = sum(1 for s in states if base(s) != fork(s))
-    check("PRIOR_MARGIN=0 is byte-identical to base", diffs == 0,
-          f"{diffs}/{len(states)} decisions differ")
+    if os.environ.get("EXPECT_IDENTICAL", "1") == "1":
+        check("PRIOR_MARGIN=0 is byte-identical to base", diffs == 0,
+              f"{diffs}/{len(states)} decisions differ")
     print(f"changed-decision rate: {100 * diffs / len(states):.2f}% "
           f"({diffs}/{len(states)})")
 
