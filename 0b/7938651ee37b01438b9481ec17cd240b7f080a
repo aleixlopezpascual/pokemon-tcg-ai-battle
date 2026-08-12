@@ -1,0 +1,24 @@
+src/measure_tie_signature_reachability.py
+  s_355fa71a45cc4a::t_cae31bfe813e2a 119,132-143,151-153,166-167,192-202,204-205,207-208,213-218
+  s_355fa71a45cc4a::t_c592f6bac90dc5 20-35
+  s_355fa71a45cc4a::t_ef394bdf6660d2 73-88
+  s_355fa71a45cc4a::t_c7d335b97f0752 232-244,250,254,265-280,287,293,302-317
+notebooks/kaggle-research/10-day-plan.md
+  s_355fa71a45cc4a::t_9cb7f46d8d90e4 1491-1523,1527-1528
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0b7938651ee37b01438b9481ec17cd240b7f080a",
+  "prompts": {},
+  "sessions": {
+    "s_355fa71a45cc4a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0b4ca571-7158-43da-af32-31d1f15631e2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
