@@ -1,0 +1,21 @@
+src/measure_tie_signature_reachability.py
+  s_355fa71a45cc4a::t_61b7e19d387c9e 1-208
+notebooks/kaggle-research/10-day-plan.md
+  s_355fa71a45cc4a::t_1e206425dfcf5b 1457-1503
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a36e716056b099237b68c5ed2686f466f581c7d5",
+  "prompts": {},
+  "sessions": {
+    "s_355fa71a45cc4a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0b4ca571-7158-43da-af32-31d1f15631e2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
