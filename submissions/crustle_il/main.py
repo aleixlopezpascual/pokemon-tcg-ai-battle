@@ -1111,6 +1111,39 @@ def select_card_score(card, player_index, context, me, opponent, state, wall_mod
     return card_keep_value(cid, me, opponent, state, wall_mode, ko_mode)
 
 
+# --- class-prior re-rank -------------------------------------------------
+# PRIOR_MARGIN = 0.0 disables the prior entirely and recovers the base agent
+# exactly (asserted by src/test_prior_identity.py). Scores in this file are an
+# ordinal tier ladder (130000 / 90000 / 80000 / 42000 / 12000 / 2000 / 100), not
+# calibrated values, so the dial is a score-margin band, not a temperature.
+PRIOR_MARGIN = 0.0
+PRIOR_WEIGHT = 0.0
+
+
+def _rerank(select, scores, order):
+    if PRIOR_MARGIN <= 0.0 or not order:
+        return order
+    try:
+        top = scores[order[0]]
+        band = [i for i in order if top - scores[i] <= PRIOR_MARGIN]
+        if len(band) < 2:
+            return order
+        logp = _class_logprior(select, {select.option[i].type for i in band})
+        if logp is None:
+            return order
+        band.sort(key=lambda i: (scores[i] + PRIOR_WEIGHT * logp.get(select.option[i].type, 0.0), -i),
+                  reverse=True)
+        in_band = set(band)
+        return band + [i for i in order if i not in in_band]
+    except Exception:
+        return order
+
+
+def _class_logprior(select, present_types):
+    """Filled in by the class-prior task. Returns None until then."""
+    return None
+
+
 def _agent(obs_dict: dict) -> list[int]:
     obs = to_observation_class(obs_dict)
     if obs.select is None:
@@ -1231,6 +1264,7 @@ def _agent(obs_dict: dict) -> list[int]:
         scores.append(score)
 
     order = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+    order = _rerank(select, scores, order)
     result = []
     for index in order:
         if len(result) >= select.maxCount:
