@@ -1488,16 +1488,41 @@ Per-class breakdown of the 302: **OPT_CARD 191 (3.82%)**, OPT_ATTACH 64 (1.28%),
 (0.56%), OPT_ENERGY 1 (0.02%); cross-class PLAY+EVOLVE 17 (0.34%), ATTACH+EVOLVE 1 (0.02%).
 `chosen[0]` matched the lowest tied index in 302/302 cases (confirms the stable-sort assumption).
 
-**Verdict: PASS — 6.04% >= the 5% floor** Task 5's L0 and Task 6's L0b were both held to and both
-failed. Notably the reachable pool is **not** where the plan's lever ordering expected: it is
-dominated by OPT_CARD (deck-search/looking-zone/bench-select decisions routed through the same
-single `sorted()` call as MAIN options, 63% of the reachable pool) rather than EVOLVE (the
-nominally-next lever slot) or the already-probed ATTACH/PLAY pair. Per the brief's own stop rule,
-this measurement is the complete deliverable for this step either way — no dataset builder or
-model was written. If a follow-up task is scoped to actually build L5, it should target OPT_CARD
-first, not EVOLVE. Full numbers, per-class methodology notes, and a cross-check against Task 6's
-independently-measured PLAY figure (28, exact match) are in
+**Revised after review (two Important findings on the 6.04%-only reading above):**
+
+1. *Is the distinctness real, or an artifact of `_option_signature`'s per-index fallback?*
+   `_option_signature` falls back to `("idx", index)` — unique per index by construction, no real
+   card/target/attack identity — for types it can't resolve (`OPT_NUMBER`/`OPT_RETREAT`/`OPT_END`,
+   and `OPT_CARD` when `area == AREA_PRIZE`). Direct instrumentation: of the 302, **281 (5.62%)
+   are `genuinely_resolved`** (every distinct group is a real resolved tuple) and **21 (0.42%) are
+   `idx_fallback_only`** — all 21 are `AREA_PRIZE` OPT_CARD ties (face-down cards, genuinely
+   unresolvable by any field). Even after stripping those 21, **5.62% still clears the 5% floor**
+   — the headline number was not hollow.
+2. *L0/L0b's own floor was measured over MAIN-context decisions only* (`select.context == 0`,
+   `select.maxCount == 1`), and OPT_CARD/OPT_ENERGY are scored by `main.py`'s non-MAIN branches
+   (deck search, looking-zone reveals, bench/discard-card select during effect resolution) — never
+   part of that population. Restricting `tie_and_distinct` to MAIN-context states only: **110/5000
+   = 2.20%** of all examined states (**110/3298 = 3.34%** of the 3,298 MAIN-context states) —
+   **both FAIL the 5% floor.** The MAIN-only 110 = OPT_PLAY 28 + OPT_ATTACH 64 + cross-class 18;
+   *all* of OPT_CARD/OPT_ENERGY (192 decisions) fall outside MAIN-context, accounting for the
+   entire gap between the two readings.
+
+**Verdict (revised, scope-dependent):**
+
+1. **L5 as originally scoped — a MAIN-context option-level tiebreaker, the same scope L0/L0b were
+   held to — FAILS the reachability floor** (2.20% of examined / 3.34% of MAIN-context states,
+   both under 5%), same outcome as L0 and L0b.
+2. **A broader-scoped tiebreaker covering any option-scoring decision (MAIN or not) PASSES**
+   (5.62-6.04%), but this is a **different lever than L5 as defined**, driven by OPT_CARD
+   deck-search/looking-zone/bench-select decisions, not MAIN PLAY/ATTACH/EVOLVE turn choices. If
+   scoped as a follow-up, it should be gated as its own candidate (e.g. "L5-CARD"), not folded
+   into L5's original framing.
+
+Per the brief's stop rule, no dataset builder or model was written for either scope — this
+measurement is the complete deliverable. Full numbers, both review-finding breakdowns, and the
+per-class methodology notes are in
 `.superpowers/sdd/humming-waddling-duckling/task-10-L5-report.md` and
 `data/processed/instrumentation/tie_signature_reachability.json` (both untracked/local, per this
 repo's convention for scratch reports and instrumentation JSON — see the report for the
-`.gitignore` check that established this).
+`.gitignore` check that established this). Commits: `a36e716` (initial 6.04%-only measurement),
+plus a follow-up commit addressing the two review findings above.
