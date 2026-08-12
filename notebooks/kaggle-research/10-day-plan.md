@@ -1160,11 +1160,17 @@ margin-threshold lever has almost no reachable population (only 2.11% of decisio
 margin 5000, 0.91% are exact ties). This is a materially different reachability profile than
 Archaludon's.
 
-**Hand-off note (informational, not yet acted on):** since 97.9% of decisions aren't close cross-
-class calls, the ATTACH class-mix gap is not well explained by score-margin proximity — the more
-promising near-term lever is the within-class tie axis (PLAY/ATTACH/EVOLVE, 13.1% of all
-decisions) rather than a margin-threshold rerank. Both L0 (ATTACH class-mix rule edit) and L0b
-(within-class tiebreaks) remain live options per the plan; Task 5 picks between them.
+**Hand-off note (informational, not yet acted on; corrected during review):** 97.9% of decisions
+aren't close cross-class calls, so a margin-threshold rerank (`PRIOR_MARGIN`) has almost no
+reachable population on Crustle. But the within-class tie axis (PLAY/ATTACH/EVOLVE, 13.1% of all
+decisions) is **not an alternative route to closing the ATTACH class-mix gap** — a within-class
+tie, by definition, is a decision where one class is already the sole top-scoring class with no
+competing class in contention, so re-breaking the tie only changes *which* option of that
+already-winning class gets picked, never whether that class wins. L0 (an ATTACH-scoring rule
+edit, Task 5) and L0b (within-class tiebreaks, Task 6) are two independent levers for two
+independent reasons — L0 targets the class-mix gap, L0b targets the largest untouched pool of
+agent indifference — not two candidate fixes for the same gap. Task 5 targets L0 directly per the
+class-mix table above; Task 6 runs L0b regardless of L0's outcome.
 
 Commit: `1876a98` (`src/audit_main_decisions.py`, `src/test_audit_main_decisions.py`). Full
 numbers and the harvest command also in the commit message and
