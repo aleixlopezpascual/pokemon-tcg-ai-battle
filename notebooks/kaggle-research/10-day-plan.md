@@ -1089,3 +1089,28 @@ independent search/IL/heuristic-fix mechanism to land at parity or worse against
 `masamikobayashi_archaludon_cinderace`. No untried mechanism remains in the intent-PIMC/IL/
 blunder-finder family — see the root-cause note above and CLAUDE.md's "Current status" section
 for the resulting recommendation.
+
+## 2026-08-12 — `archaludon_lossfix` lost, redone, submitted
+
+`git worktree remove --force` (this plan's own finish step) silently deleted
+`submissions/archaludon_lossfix/` — it only existed as gitignored, never-committed files inside
+that worktree. No git history, no Trash backup, unrecoverable. Root cause: `submissions/*` was
+blanket-gitignored to keep out third-party binaries/pulls, but the same rule also swallowed our
+own edits. Fixed the `.gitignore`/CLAUDE.md policy (`main.py`/`deck.csv` now tracked per
+candidate, `cg/`/build artifacts still ignored) and retroactively committed every existing
+candidate's `main.py`/`deck.csv` so this can't recur — commits `fe56e9e` (policy) and `c144463`
+(redo).
+
+Redid all 3 fixes from `src/test_lossfix.py`'s docstrings (the only surviving record of the exact
+bug conditions and intended fix), applied to a fresh fork of `masamikobayashi_archaludon_cinderace`.
+Original captured-obs fixtures were lost too and are not reproduced — `test_lossfix.py` skips
+cleanly (0 failed, 3 skipped). Preflighted: `py_compile` clean, stripped-`sys.path` 5-battle smoke
+clean (no numpy), `local_eval.py` 210-game smoke run clean (0 errors, 62.4% pooled — a crash/sanity
+check, not a regression signal). Submitted (4 submissions remaining today) — this starves
+`biohack44_alakazam_dunsparce` (`55409986`, 694.6, the lower/declining of the two live slots)
+rather than `soutasakurai_libraryout_crustle` (`55416420`, 746.9, highest real score seen in this
+project). Active pair is now `{55416420 crustle, <new> archaludon_lossfix}`.
+
+Per `evaluation-methodology.md`'s retro-validation finding, the local frozen-panel gate has twice
+sign-flipped or badly underestimated real-ladder results for fixes of this size and shape — this
+submission is exactly that bet: local read parity, real read unknown until it settles.
