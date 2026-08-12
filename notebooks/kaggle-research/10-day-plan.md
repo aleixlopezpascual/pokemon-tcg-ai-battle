@@ -1000,3 +1000,54 @@ predicting the search layer's own intent labels) have now been tried and have bo
 gate, the second one decisively rather than at parity. No untried mechanism remains in the plan.
 Surfaced to the user with accurate framing: stop and ship the rule-based fallback, or specify a
 different approach to try, since intent-PIMC has no further plan-sanctioned lever left to pull.
+
+## 2026-08-11/12 — PIMC-oracle blunder finder (base-heuristic loss fix, orbit-wars-teardown approach A)
+
+Different mechanism than every prior attempt above: instead of adding a live search override on
+top of the base heuristic, played the **unmodified** base heuristic through real games and used
+the PIMC oracle purely as read-only instrumentation — scoring every MAIN decision against its
+ranked alternatives, flagging large score gaps in games the candidate went on to lose as concrete
+heuristic-bug candidates. Full design: `docs/superpowers/specs/2026-08-11-pimc-blunder-finder-design.md`,
+plan: `docs/superpowers/plans/2026-08-11-pimc-blunder-finder.md`, executed via
+`superpowers:subagent-driven-development` (ledger:
+`.superpowers/sdd/2026-08-11-pimc-blunder-finder/progress.md`).
+
+**Harvest:** `src/blunder_finder.py`, 600 games each vs. the two worst matchups (Crustle 33.5%,
+Alakazam/Dunsparce 42.1%), `--profile ship` (40 PIMC determinizations/decision). 21,057 +
+14,778 decision records; loss-decisions with `gap>0.3`: 1,922 (Crustle) and 1,041 (Alakazam) — far
+above the ~20 floor that would have forced a scale-up.
+
+**Triage:** `src/triage_blunders.py` deduped by `(matchup, turn // 2)` bucket, sorted by gap
+descending -> 34 distinct buckets, 21,147 total loss-decisions, top gap ~2.0 (several tied at the
+max).
+
+**Fixes applied to `submissions/archaludon_lossfix/` (forked from
+`masamikobayashi_archaludon_cinderace`, kept gitignored/uncommitted per this repo's
+never-force-add-submissions policy):**
+1. Lillie played over a loose Metal Energy attach when `detect_matchup` hadn't yet locked in
+   "crustle" early-game (same defect *class* CLAUDE.md already documents for the `detect_matchup`
+   None-guard fix — a matchup-detection timing gap, not a scoring-magnitude bug).
+2. Hero's Cape usable while not the ACTIVE Pokemon, plus a missing `METAL_ENERGY` gate on a
+   Crustle bench-Duraludon override.
+3. Missing `_boss_has_lethal` check let Lillie get played over a lethal Boss's Orders attack.
+
+3 other worklist entries discarded as oracle-approximation noise (Explorer's Guidance deck-count
+threshold; two Metal-Defender-vs-generic-attacker entries — a task-reviewer initially flagged the
+latter two as a missed second instance of defect #1, but independently re-verified the specific
+captured fixture and confirmed Crustle's identifying Pokemon was already KO'd/discarded by that
+turn, so "generic" was the correct read, not a detection gap; finding retracted). Stop condition
+(3 fixes, 2 consecutive discards) reached genuinely, not gamed.
+
+**Gate result (`src/ladder_eval.py rate`, full 7-agent frozen panel, n=4000):**
+`mu=662.5` (sigma 19.8) vs. reference **676.3** (`masamikobayashi_archaludon_cinderace`, n=24000).
+Diff = **-13.8**, `|diff| <= 25` -> **PARITY**. Per the plan's pre-registered decision rule: no
+ship, no confirmation run (that's only for a measured improvement), move to the plan's Task 6
+fallback (manual loss reading) rather than iterating a 5th time on this same worklist.
+
+**This is the fourth independent mechanism (PIMC search override, IL intent classifier, PIMC
+noise-driven-override fix, and now base-heuristic loss-fix-via-blunder-finder) to land at parity
+or worse against the rule-based fallback.** `archaludon_lossfix`'s 3 fixes are real, verified bug
+fixes (each has a fixture-driven before/after test in `src/test_lossfix.py`) — they are simply too
+small in aggregate reach to move a 4000-game frozen-panel reading past the noise floor. Kept on
+disk, not shipped, not deleted — available if Task 6's manual reading surfaces a reason to revisit
+or extend this specific worklist.
