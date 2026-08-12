@@ -1175,3 +1175,89 @@ class-mix table above; Task 6 runs L0b regardless of L0's outcome.
 Commit: `1876a98` (`src/audit_main_decisions.py`, `src/test_audit_main_decisions.py`). Full
 numbers and the harvest command also in the commit message and
 `.superpowers/sdd/humming-waddling-duckling/task-3-report.md`.
+
+### 2026-08-12 — Task 5 (crustle_il plan): L0 (ATTACH scoring edit) — reachability gate, pre-registered
+
+Attempted to cash Task 3's largest measured class-mix gap (ATTACH: Crustle 12.47% vs expert
+21.1%, -8.63pp) as a minimal scoring-constant edit in `submissions/crustle_il/main.py`'s
+`attach_score` (defined at `main.py:775`). Step 1 re-confirmed directly from
+`data/processed/instrumentation/crustle_main_audit.json` rather than trusting the ledger
+transcription: class `8` (ATTACH) chosen 12.4657%, available 24.8542% — availability clears the
+brief's 15% floor, and the number matches Task 3's ledger line exactly.
+
+**Edit tried (Step 2):** `attach_score`'s `CRUSTLE` branch, non-priority-target energy-attach
+default (`main.py:807`, fires whenever a Crustle-targeted energy attach isn't the wall-mode-grass
+combo above it — i.e. no `SUPERB_SCISSORS` lucario matchup, no grass energy under 3 stacks). Base
+value `12000` — one of the file's several established low tiers. Raised to `120000`, the highest
+value that doesn't exceed *any* other class's established priority tier (stays at/below
+`RETREAT`'s ready-tusk-on-bench tier 125000 and wall-mode tier 130000, `EVOLVE`'s wall-mode
+Dwebble tier 130000, and `BOSS_ORDERS`/`LISIA_APPEAL`'s mid disruption tier 120000).
+
+**Pass rule (Step 3, pre-registered, restated before the reading):** run
+`EXPECT_IDENTICAL=0 python3 src/test_prior_identity.py` and read the printed changed-decision
+rate. **5-40% passes and advances to Step 4 (exploratory mirror).** Below 5% is the PIMC
+3%-reachability trap — abandon without gating, no battles spent. Above 40% is a different policy,
+not an edit, also abandon.
+
+**Command (literal):**
+```
+EXPECT_IDENTICAL=0 python3 src/test_prior_identity.py
+```
+
+**Reading (2026-08-12), best tier-respecting candidate (`main.py:807`, `12000` -> `120000`):**
+
+| metric | value |
+|---|---|
+| changed-decision rate | **0.78%** (39/5000) |
+| required band | 5-40% |
+| result | **below floor** |
+
+Eight candidate edits were screened locally before settling on the one above (all zero battle
+cost — offline replay against `data/processed/selfplay_crustle/` shards, no mirror/ladder spend):
+
+| branch | edit | changed-decision rate | tier-safe? |
+|---|---|---|---|
+| CRUSTLE default | 12000 -> 40000 | 0.18% (9/5000) | yes |
+| CRUSTLE default | 12000 -> 80000 | 0.30% (15/5000) | yes |
+| CRUSTLE default | 12000 -> 120000 | **0.78% (39/5000)** | yes (final candidate) |
+| CRUSTLE default | 12000 -> 130000 | 3.84% (192/5000) | no — ties/exceeds RETREAT 125k/130k, EVOLVE-wall 130k |
+| CRUSTLE default | 12000 -> 150000 | 4.44% (222/5000) | no — exceeds BOSS_ORDERS/LISIA_APPEAL 120k |
+| CRUSTLE default | 12000 -> 200000 | 7.88% (394/5000) | no — clears 5% only by inverting the above tiers |
+| GREAT_TUSK (>=2 energy, non-KO) | 20000 -> 90000 | 0.22% (11/5000) | yes |
+| GREAT_TUSK (KO mode) | 90000 -> 130000 | 0.28% (14/5000) | no — exceeds BOSS_ORDERS/LISIA_APPEAL 120k |
+| DWEBBLE default | 9000 -> 40000 | 0.30% (15/5000) | yes |
+| DWEBBLE default | 9000 -> 51000 | 0.30% (15/5000) | yes (ceiling below its own 52000 active-evolve tier) |
+| DWEBBLE default | 9000 -> 90000 | 0.62% (31/5000) | no — inverts its own active-evolve-ready tier (52000) |
+| all energy-attach branches (structural probe, not a real single-constant edit) | flat +50000 | 2.33% (77/3298 MAIN-eligible) | n/a — diagnostic only |
+
+**Root-cause (offline replay of the full MAIN scorer, 20,000 harvested states):** conditional on
+ATTACH being legal, the agent already picks it 49.7% of the time (matches the audit's
+12.47/24.85 = 50.2%). Of the decisions it loses, only 7.75% lose by <=50,000 points and only 1.3%
+by <=20,000 — the reachable "close call" pool is thin. The bulk of ATTACH's losses are by
+100,000+ points to `RETREAT`, `EVOLVE` (wall mode), or high-tier `PLAY`/`ATTACK` options. Reaching
+a 5% global change rate requires flipping decisions in that bulk, which means crossing
+`RETREAT`'s survival tier (125000/130000) and `EVOLVE`'s wall-evolution tier (130000) — a
+tier-ladder inversion, not a calibration nudge. This mirrors the brief's own warning almost
+exactly: the single largest measured class-gap doesn't move under a bounded, tier-respecting
+edit, which is evidence against the broader class-prior hypothesis on Crustle, not just this one
+constant.
+
+**Verdict:**
+
+1. **Changed-decision rate in [5%, 40%]: FAIL.** 0.78% (39/5000), well under the 5% floor.
+2. **Edit respects the tier ladder (Step 2 constraint): PASS for the reported candidate**, but
+   only by staying under the floor — the one candidate that clears 5% (CRUSTLE default at
+   200000, 7.88%) does so exclusively by violating this same constraint, so no candidate
+   satisfies both rules simultaneously.
+3. **Battle budget spent: 0.** Per the pre-registered rule, a sub-5% reading aborts before Step 4
+   — no mirror or ladder games were run for this arm.
+
+**Overall: FAIL — abandoned at Step 3, before any battle spend.** Edit reverted
+(`git checkout -- submissions/crustle_il/main.py`; re-verified byte-identical to base,
+`EXPECT_IDENTICAL=1` passes with 0/5000 diffs). No commit was made for the code change (nothing
+was ever staged past local testing) — this section is the written record per the plan's own
+"a negative result that isn't written down gets re-run" rule. **Next: Task 6** (L0b, within-class
+tiebreaks), per the brief's explicit fallback instruction and independent of L0's outcome per
+Task 3's hand-off note above. Full numbers, all eight screened candidates, and the offline
+replay methodology are also in
+`.superpowers/sdd/humming-waddling-duckling/task-5-report.md`.
