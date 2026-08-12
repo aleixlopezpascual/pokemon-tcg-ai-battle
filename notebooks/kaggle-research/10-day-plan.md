@@ -1262,3 +1262,112 @@ tiebreaks), per the brief's explicit fallback instruction and independent of L0'
 Task 3's hand-off note above. Full numbers, all eight screened candidates, and the offline
 replay methodology are also in
 `.superpowers/sdd/humming-waddling-duckling/task-5-report.md`.
+
+### 2026-08-12 — Task 6 (crustle_il plan): L0b (within-class tiebreaks) — reachability gate, pre-registered
+
+Attempted to cash Task 3's largest untouched decision pool — within-class ties, 10,357 decisions
+(13.1% of all 79,041 MAIN-eligible decisions), independent of L0 (Task 5) per the plan's own
+hand-off note (a different lever: tiebreaking *within* an already-winning class, not which class
+wins). Target order per the plan's Task 6 Step 1: the two largest pools, ATTACH (4,248, 5.37% of
+all MAIN decisions) then PLAY (4,149, 5.25%).
+
+**Edit (Step 1):** added a new `_tiebreak(select, scores, order, obs, state, me, opponent,
+wall_mode, ko_mode)` hook in `submissions/crustle_il/main.py`, called from the sort call site
+(`_agent`, immediately after `_rerank`) only when `PRIOR_MARGIN <= 0.0`. It operates strictly on
+the subset of `order` whose score equals `scores[order[0]]` and whose types are homogeneous
+(guards: `len(band) < 2` and `len(types) != 1` both bail out to the untouched `order`), so the
+base agent's index-order tiebreak is recovered by construction everywhere a same-class tie
+doesn't exist. Two candidate keys, gated behind module flags `TIEBREAK_ATTACH` /
+`TIEBREAK_PLAY` (only one enabled at a time, to isolate each arm's own measurement):
+- ATTACH: `_remaining_energy_to_attack(target) = max(0, attack_energy_minimum(target) -
+  attached_energy_count(target))`, ascending (prefer the target closest to being able to attack).
+- PLAY: `card_keep_value(cid, me, opponent, state, wall_mode, ko_mode)` (defined at
+  `main.py:526`), ascending (play the card the deck rates least valuable to keep, first).
+
+**Pass rule (Step 2, pre-registered, restated before the reading):** run
+`EXPECT_IDENTICAL=0 python3 src/test_prior_identity.py` and read the printed changed-decision
+rate. **Must match Task 3's measured tie share for the targeted class, ±2pp** — ATTACH band
+3.37-7.37%, PLAY band 3.25-7.25%. A mismatch means `_tiebreak` is firing outside the tie set (a
+bug) — or, as this reading found, firing correctly but rarely changing the outcome (a reachability
+problem) — either way, per the brief, **not gated anyway**: fix a bug if there is one, otherwise
+stop before Step 3, no battle spend.
+
+**Command (literal):**
+```
+EXPECT_IDENTICAL=0 python3 src/test_prior_identity.py
+```
+
+**Readings (2026-08-12):**
+
+| arm | changed-decision rate | required band (±2pp) | result |
+|---|---|---|---|
+| ATTACH (`TIEBREAK_ATTACH=True`) | **0.02%** (1/5000) | 3.37-7.37% | **below floor** |
+| PLAY (`TIEBREAK_PLAY=True`) | **0.36%** (18/5000) | 3.25-7.25% | **below floor** |
+
+Both arms were tested in isolation (only one flag on at a time) against the same 5,000-state
+`data/processed/selfplay_crustle/` sample used by every prior task's reachability check.
+
+**Root-cause (direct instrumentation of `_tiebreak`'s own inputs, same 5,000 states, real
+production scoring via `agent_main.agent(s)` — not a reimplementation):**
+
+*ATTACH:* 206/5000 states (4.12%) hit a genuine same-class ATTACH tie — in the right order of
+magnitude for the audit's 5.37%-of-MAIN figure once the ~69%-MAIN composition of the raw state
+sample is accounted for (`_tiebreak` cannot fire on the ~31% non-MAIN states at all, so the
+denominators aren't directly comparable 1:1; the 206 count is the correct like-for-like check and
+it lines up). Of those 206:
+- 92 (44.7%) tie multiple *energy cards onto the same target* — the target-based tiebreak key is
+  identical for every option in the band by construction (same target ⇒ same
+  remaining-energy-to-attack), so these are irreducible by any target-preference rule and
+  correctly fall through to the base index order. Not a bug; there is no informative choice here.
+- 114 (55.3%) tie across *different targets*. Of these, 78 have a target-distinguishing key value
+  (36/114 don't — different targets that coincidentally need the same remaining energy). Of the 78
+  reachable-in-principle decisions, only 18 actually produce a different scan order once sorted,
+  and of those 18, only **1** changes the final top pick (`select.maxCount` is 1 for ATTACH, so
+  only the band's new first element matters). The other 17 reorder lower-priority alternatives
+  that are never selected.
+- Net: the "prefer least remaining energy" key overwhelmingly agrees with the option list's
+  existing enumeration order (active-before-bench, and the active Pokémon is typically also the
+  one closest to attack-ready in these states) — a real property of this agent's states, not an
+  implementation defect.
+
+*PLAY:* 182/5000 states (3.64%) hit a genuine same-class PLAY tie, close to the audit's
+5.25%-of-MAIN figure under the same MAIN-composition caveat. Of those 182:
+- 154 (84.6%) tie multiple *identical copies of the same card* (e.g., two Basic Fighting Energy in
+  hand) — `card_keep_value` depends only on `card_id`, so these ties are indifferent by
+  construction (there is no game-relevant difference between playing copy A vs. copy B of the same
+  card) and correctly fall through to the base index order. This is a real property of Task 3's
+  raw tie count: `audit_main_decisions.py`'s `tie_report` counts ties by option *type* only, not by
+  underlying card/target identity, so a large share of the "10,357 within-class ties" ledger figure
+  is this kind of indifferent duplicate, unreachable by any deterministic preference rule.
+- 28 (15.4%) tie across genuinely distinct cards. Of these, 19 reorder and **18** change the final
+  top pick — a much higher hit rate than ATTACH's 1/78, consistent with `card_keep_value` not
+  sharing ATTACH's index-correlation problem. This produces the measured 18/5000 = 0.36%.
+
+**Verdict:**
+
+1. **ATTACH changed-decision rate in [3.37%, 7.37%]: FAIL.** 0.02% (1/5000) — three orders of
+   magnitude below floor. Confirmed not a scope bug (band/type guards verified directly); root
+   cause is the target-preference key's near-total correlation with the pre-existing index order
+   among the genuinely-reachable sub-pool, compounded by ~45% of the raw tie count being
+   same-target duplicates no target-preference rule can ever move.
+2. **PLAY changed-decision rate in [3.25%, 7.25%]: FAIL.** 0.36% (18/5000) — also well below
+   floor. Confirmed not a scope bug; root cause is ~85% of the raw PLAY tie count being
+   same-card-identity duplicates that are indifferent by construction, not a reachable pool a
+   tiebreak can act on.
+3. **Battle budget spent: 0.** Per the pre-registered rule (mismatch ⇒ "not gated anyway"), both
+   arms stopped before Step 3 — no exploratory mirror, confirmatory mirror, or panel veto games
+   were run for either arm.
+
+**Overall: FAIL — both targets abandoned at Step 2, before any battle spend.** Both were tried
+(the second regardless of the first's outcome, matching Task 5's own precedent that a failed lever
+doesn't block trying the next one — this repo's per-arm gate is designed to run each of the two
+largest pools independently). Edit fully reverted (`git checkout --
+submissions/crustle_il/main.py`); re-verified byte-identical to base, `EXPECT_IDENTICAL=1` passes
+with 0/5000 diffs. No commit was made for the code change (nothing was ever staged past local
+instrumentation and testing) — this section is the written record per the plan's own "a negative
+result that isn't written down gets re-run" rule. The deeper finding — Task 3's raw within-class
+tie counts conflate genuinely-reachable ties with indifferent duplicate-card/duplicate-target
+ties, so the *true* reachable pool for any deterministic tiebreak is much smaller than 13.1% of
+MAIN decisions — applies to the remaining EVOLVE pool (1,960) too and is worth flagging for
+whatever comes after Task 6. Full instrumentation numbers and methodology are also in
+`.superpowers/sdd/humming-waddling-duckling/task-6-report.md`.
