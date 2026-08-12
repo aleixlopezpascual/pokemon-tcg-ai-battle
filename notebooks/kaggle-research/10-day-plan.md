@@ -1051,3 +1051,41 @@ fixes (each has a fixture-driven before/after test in `src/test_lossfix.py`) —
 small in aggregate reach to move a 4000-game frozen-panel reading past the noise floor. Kept on
 disk, not shipped, not deleted — available if Task 6's manual reading surfaces a reason to revisit
 or extend this specific worklist.
+
+### Task 6 (manual loss reading) + final whole-branch review — plan closed
+
+Task 6 fell back to `local_eval.py --save-losses --repeats` (the gate's own PARITY result ruled
+out a 5th worklist iteration). Crustle: 121 losses. Alakazam/Dunsparce: 108 losses. Pattern found
+only in the Alakazam/Dunsparce side, ~20-25/108: opponent's own Boss's Orders forces a bench
+switch (confirmed at the raw `SelectContext` level — opponent-controlled, not a candidate
+decision), followed by post-KO attrition into Alakazam's "Powerful Hand" hand-size-scaling damage
+(confirmed against live engine data via `cg.api.all_attack()`). Crustle: 0/121 showed any
+fixable pattern. Independently re-verified by the task reviewer from raw replay JSON and live
+engine queries, not from the report's prose — including a specific check for a missed
+candidate-side lever, which came back negative. No fix: this is a structurally-unfixable-at-
+decision-level pattern (an opponent-side forced switch feeding an opponent-side scaling attacker),
+not a bug. No fixture test added. **Task 6 conclusion: nothing to fix, nothing shipped.**
+
+**Final whole-branch review** (dispatched on `opus` per the skill's Model Selection — the most
+capable available model, mandatory for this gate) found 1 Important defect: `src/blunder_finder.py`
+tracked opponent-attack state (`_opp_last_attack_id`/`_cur_turn_logs`) on the *candidate* module
+only, never syncing the same update onto the separately-loaded `oracle` module — each
+`_import_module` load gets its own module-level globals, so the oracle's own Boss's-Orders scoring
+branch (`main.py:698`) always saw `_opp_last_attack_id = None`. Zero effect on this project's
+actual harvests (neither Crustle nor Alakazam/Dunsparce uses Mega Brave), but a latent bug for any
+future harvest against a Mega-Brave opponent (e.g. `kiyota_mega_lucario_ex`). Fixed in commit
+`995eecc` (`_base_agent_move` now mirrors the tracking update onto `oracle` as well as `cand`);
+scoped re-review confirmed correct wiring, no double-count/reentrancy risk, `test_lossfix.py`
+still 0 failed/0 skipped. 11 Minor findings (dead stores, unparameterized constants, doc
+overreach, style inconsistencies across `blunder_finder.py`/`triage_blunders.py`/
+`test_lossfix.py`) deferred per the skill's rule that Minors never enter the fix loop — none are
+load-bearing for the parity/no-ship conclusion above.
+
+**Plan complete.** All 6 tasks done, final review done, one final-review fix applied and
+re-verified. Branch `worktree-archaludon-intent` merged to `main` via
+`superpowers:finishing-a-development-branch` (fast-forward, no merge commit). This closes out
+"approach A" (base-heuristic blunder-fixing) from `orbit-wars-teardown.md` as the fourth
+independent search/IL/heuristic-fix mechanism to land at parity or worse against
+`masamikobayashi_archaludon_cinderace`. No untried mechanism remains in the intent-PIMC/IL/
+blunder-finder family — see the root-cause note above and CLAUDE.md's "Current status" section
+for the resulting recommendation.

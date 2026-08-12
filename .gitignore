@@ -12,11 +12,18 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Models & submissions
+# Models & submissions -- track our own authored/modified logic (main.py, deck.csv)
+# so worktree/cleanup can never silently delete real work again. Still ignore the
+# large third-party compiled engine binary (submissions/*/cg/, ~5.2M each) and build
+# artifacts.
 models/*
 !models/.gitkeep
 submissions/*
 !submissions/.gitkeep
+!submissions/*/
+submissions/*/*
+!submissions/*/main.py
+!submissions/*/deck.csv
 
 # Third-party kernels pulled for research (not ours to commit)
 notebooks/kaggle-research/pulled/
