@@ -1427,28 +1427,56 @@ def _rollout_to_terminal(search_id, obs, my_index, deadline, live):
     return cur_obs, False
 
 
-def _pimc_score(obs, my_deck, my_index, first_option, deadline):
-    """Average win/loss over `PIMC_DETERMINIZATIONS` resampled full-game rollouts.
+def _generate_pimc_worlds(obs, my_deck, k):
+    """Build `k` resampled hidden-info worlds once per decision (Common Random Numbers).
 
-    For each draw: resample the opponent's guessed hidden information fresh (a different
-    plausible hand/deck/prize split from the matched archetype each time), start a new search
-    from the same real, current observation, apply `first_option`, then roll both sides to a
-    terminal state with the base policy. Scores `+1` win / `-1` loss / `0` draw-cutoff, averaged.
-    Returns `None` if no draw reached a real terminal state before the deadline -- an unscoreable
-    candidate should not silently look like a tie against one that is scoreable.
+    Every PIMC candidate in `search_reorder` is scored against these same `k` worlds instead
+    of each independently calling `_hidden_info_kwargs` (and so resampling its own opponent
+    guess). Without this, between-candidate score variance was dominated by which worlds got
+    sampled, not by which action is better -- the root cause of the pre-fix 0.8% override
+    rate. `_hidden_info_kwargs` reads real state off `obs`/`my_deck` and only writes to
+    `random` (`random.shuffle`, archetype-matched branch), so caching its output up front and
+    reusing it across candidates is safe: the worlds are pure data, no search state is shared.
+
+    Seeds `random` per world index so the resample recipe is deterministic for a given
+    decision, then restores the prior random state -- this must not perturb the unrelated
+    `random.sample` crash-fallback used elsewhere in this file.
+    """
+    worlds = []
+    saved_state = random.getstate()
+    try:
+        seed_base = id(obs)
+        for i in range(k):
+            random.seed(seed_base + i)
+            worlds.append(_hidden_info_kwargs(obs, my_deck))
+    finally:
+        random.setstate(saved_state)
+    return worlds
+
+
+def _pimc_score(obs, my_deck, my_index, first_option, deadline, worlds):
+    """Average win/loss over the shared `worlds` (Common Random Numbers, see `_generate_pimc_worlds`).
+
+    For each world: start a new search from the same real, current observation using that
+    world's hidden-info guess, apply `first_option`, then roll both sides to a terminal state
+    with the base policy. Scores `+1` win / `-1` loss / `0` draw-cutoff, averaged. Returns
+    `(None, scored)` if fewer than `max(3, len(worlds) // 4)` worlds reached a real terminal
+    state before the deadline -- a candidate cut off almost immediately by a budget slice
+    should not be scored off 1-2 noisy draws, but a candidate that completed most of its share
+    still returns a usable mean instead of being thrown away for a partial cutoff.
 
     This is the whole point of the PIMC replacement: no hand-picked weight exists here for a
-    future matchup to expose as wrong. The only free parameters are how many times we resample
-    (`PIMC_DETERMINIZATIONS`) and how far we're willing to roll out (`SEARCH_MAX_TOTAL_PLIES`),
-    both budget knobs, not judgements about the game.
+    future matchup to expose as wrong. The only free parameters are how many worlds we
+    resample (`PIMC_DETERMINIZATIONS`) and how far we're willing to roll out
+    (`SEARCH_MAX_TOTAL_PLIES`), both budget knobs, not judgements about the game.
     """
     total, scored = 0, 0
-    for _ in range(PIMC_DETERMINIZATIONS):
+    for w in worlds:
         if time.time() > deadline:
             break
         live = []
         try:
-            root = _search_begin_determinized(obs, my_deck)
+            root = search_begin(obs, manual_coin=True, **w)
         except Exception:
             continue
         live.append(root.searchId)
@@ -1472,7 +1500,10 @@ def _pimc_score(obs, my_deck, my_index, first_option, deadline):
                     search_release(sid)
                 except Exception:
                     pass
-    return (total / scored) if scored > 0 else None
+    min_required = max(3, len(worlds) // 4)
+    if scored < min_required:
+        return None, scored
+    return total / scored, scored
 
 
 def search_reorder(obs, base_selected):
@@ -1576,22 +1607,30 @@ def search_reorder(obs, base_selected):
         _game_search_seconds += time.time() - t_start
         return base_selected
 
-    # No proven win or loss above: score every candidate by resampled terminal rollouts instead of
-    # a hand-weighted board evaluator. The base policy's own answer is scored first (`candidates`
-    # starts with `base_selected[0]`), so a tie -- or running out of budget before a second
-    # candidate is even scoreable -- keeps its answer, the same discipline the old strict-
-    # improvement-only board evaluator used.
+    # No proven win or loss above: score every candidate by resampled terminal rollouts instead
+    # of a hand-weighted board evaluator. Every candidate is scored against the same resampled
+    # worlds (CRN, see `_generate_pimc_worlds`) so score differences reflect the action, not
+    # which opponent hand/deck got sampled for it, and each gets an equal slice of the
+    # remaining budget (not a shared deadline that starves later candidates once the base
+    # option -- first in `candidates` -- has spent freely). A tie (or a candidate that never
+    # cleared its scoring floor) is broken by whichever completed more worlds, not by
+    # position in `candidates`, so the base option is no longer privileged on ties.
     _search_stats["pimc_decisions"] += 1
-    best_option, best_value = None, None
-    for first in candidates:
+    worlds = _generate_pimc_worlds(obs, my_deck, PIMC_DETERMINIZATIONS)
+    n_candidates = len(candidates)
+    pimc_start = time.time()
+    pimc_budget = max(deadline - pimc_start, 0.0)
+    best_option, best_value, best_scored = None, None, -1
+    for i, first in enumerate(candidates):
         if time.time() > deadline:
             _search_stats["budget"] += 1
             break
-        value = _pimc_score(obs, my_deck, my_index, first, deadline)
+        slice_deadline = min(deadline, pimc_start + (i + 1) * (pimc_budget / n_candidates))
+        value, n_scored = _pimc_score(obs, my_deck, my_index, first, slice_deadline, worlds)
         if value is None:
             continue
-        if best_value is None or value > best_value:
-            best_option, best_value = first, value
+        if best_value is None or value > best_value or (value == best_value and n_scored > best_scored):
+            best_option, best_value, best_scored = first, value, n_scored
 
     _game_search_seconds += time.time() - t_start
     if best_option is None:
