@@ -1630,3 +1630,40 @@ gate genuinely lacks resolving power for within-archetype deck-mining changes on
 tested cases — consistent with `evaluation-methodology.md`'s calibration table, and justifies the
 user's call to submit despite local failure. `kiyota_mega_lucario_ex_l6deck`'s `SUBMITTED_DESPITE_LOCAL_WASH.md`
 marker is now stale in tone (it undersold this fork) but the underlying local numbers in it remain accurate.
+
+## 2026-08-13 — audit findings, estimator repair, and today's exploration pair
+
+Six-agent audit of every prior experiment/note produced four findings (full plan:
+`/Users/aleix.lopez/.claude/plans/humming-waddling-duckling.md`): (1) both accumulating slots held
+our two worst agents (`55459429` 581.7, `55459427` 516.4) — auto-select would have shipped them as
+Finals; (2) our actual best real score is **774.8** (`55327510`), not the 744.6 this doc previously
+called our best — three top-five artifacts (774.8 reconstruction, dragapult raw 738.1, masamikobayashi
+raw v6 643.1) had no preserved source; (3) `src/ladder_eval.py`'s `rate_candidate` called
+`rate_against_fixed` with no `tau`, defaulting to `DEFAULT_TAU=2.0` while `fit_panel` fits the panel at
+`tau=0.0` — an 8x-too-wide noise band (measured: tau=2 spread 50.3 mu vs tau=0 spread 0.01 mu on
+identical win-count data) that invalidated `archaludon_lossfix`'s recorded −13.8 mu "regression" (Task 5
+will recompute this on a matched field); (4) the local panel is near-blind at the range that matters —
+TomBombadyl's agent (real 1196.1) reads 661.3 locally, indistinguishable from our own 649-685 agents
+that score 603-775 real — so remaining runway shifts to exploration (never-measured candidates) over
+further rule engineering.
+
+**Fixed `src/ladder_eval.py`** (commit `4415319`): `rate_candidate` now calls `rate_against_fixed` at
+`tau=0.0` to match the panel fit; `--exclude` added to the `rate` CLI subcommand (parity with `compare`'s
+existing opponent-blocking); `tau` hashed into `panel_version` so tau=0 and tau=2 ratings can never again
+be silently compared.
+
+**Today's exploration pair, chosen for zero engineering cost and to un-starve the two slots:**
+
+- `kojimar_lucario` (`55483873`, uploaded first) — public Kaggle kernel Mega Lucario
+  (kojimar/makthanithin, title claims 1084.5). Promoted from `_localonly_makthanithin_lucario` under
+  the 2026-08-13 public-Kaggle-kernel policy; ships kojimar's clean bytes (makthanithin's published copy
+  has a stray `) hi:` and does not compile). Never before measured on the real ladder. Local frozen-panel
+  mu 649.2 (pre-tau-fix estimator). Status PENDING.
+- `archaludon_hardening_v1` (`55483875`, uploaded last — the arm that matters most) — reconstruction of
+  the genuine-best 774.8 (`55327510`), whose source was never preserved. `submissions/masamikobayashi_archaludon_cinderace/main.py`
+  with the `detect_matchup` None-guard (added in the later `55330407`, 711.4) reverted. Verified the
+  guard fires 0/200 in a local smoke test (matching the original 0/171,566), confirming the two states
+  are behaviourally identical and the 63.4 mu gap is ladder noise. Status PENDING.
+
+Both preflighted (py_compile clean, `__file__`/no-`__file__` guard verified, stripped-sys.path 5-battle
+smoke clean, tarball members verified with no `__pycache__`) and secrets-scanned clean before upload.
