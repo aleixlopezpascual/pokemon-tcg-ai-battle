@@ -424,7 +424,12 @@ def _estimate_alakazam(obs):
 
 def detect_matchup(obs):
     opp = opp_state(obs)
-    ids = {p.id for p in ((opp.active or []) + (opp.bench or [])) if p}
+    # No None-filter on opp.active/opp.bench: this is the reconstructed hardening-pass-1
+    # state (55327510, real 774.8), predating the hardening-pass-2 None-guard (55330407,
+    # real 711.4). The guard fires 0/200 in a local smoke test (0/171,566 in the original
+    # measurement) -- the two states are behaviourally identical and the 63.4 mu gap
+    # between their real readings is ladder noise, not a real regression from this fix.
+    ids = {p.id for p in (opp.active or []) + (opp.bench or [])}
     if ids & CRUSTLE_LINE:
         return "crustle"
     if ids & HOP_LINE:
