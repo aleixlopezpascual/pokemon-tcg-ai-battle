@@ -1,0 +1,23 @@
+submissions/kojimar_lucario/main.py
+  s_355fa71a45cc4a::t_b4ef718691b610 1-596
+submissions/kojimar_lucario/deck.csv
+  s_355fa71a45cc4a::t_b4ef718691b610 1-60
+submissions/kojimar_lucario/PROVENANCE.md
+  s_355fa71a45cc4a::t_2c7d4f09870efb 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "33bda956a084160d3130b0f1e523a30d62aa81bc",
+  "prompts": {},
+  "sessions": {
+    "s_355fa71a45cc4a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0b4ca571-7158-43da-af32-31d1f15631e2",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
