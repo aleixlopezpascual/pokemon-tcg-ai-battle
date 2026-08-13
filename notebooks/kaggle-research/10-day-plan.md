@@ -1607,12 +1607,26 @@ measurement stands as recorded; only the submit decision changed.
 
 | Ref | Date | Description | Status | μ |
 |---|---|---|---|---|
-| `55459427` | 2026-08-12 13:23 UTC | `kiyota_mega_lucario_ex_l6deck` — L6 deck-mining fork (cluster 244 sides/63.9% WR, jaccard 0.714). Local μ 573.5 vs parent 582.4 (Δ −8.9, inside 25μ noise, a wash). Archetype's real/local relationship: real ladder (439.9-450.9) much *lower* than local (~582-591). | COMPLETE | pending stabilization (first read 600.0) |
-| `55459429` | 2026-08-12 13:23 UTC | `kiyota_dragapult_ex_l6deck` — L6 deck-mining fork (cluster 142 sides/62.7% WR, jaccard 0.739). Local μ 500.9 vs parent 617.3 (Δ −116.4, clear regression, outside noise band). Archetype's real/local relationship: **inverted** — real ladder (698.5) *higher* than local (615.9-617.3). Uploaded last per "arm that matters most reads last" convention. | COMPLETE | pending stabilization (first read 600.0) |
+| `55459427` | 2026-08-12 13:23 UTC | `kiyota_mega_lucario_ex_l6deck` — L6 deck-mining fork (cluster 244 sides/63.9% WR, jaccard 0.714). Local μ 573.5 vs parent 582.4 (Δ −8.9, inside 25μ noise, a wash). Archetype's real/local relationship: real ladder (439.9-450.9) much *lower* than local (~582-591). | COMPLETE | **516.4** |
+| `55459429` | 2026-08-12 13:23 UTC | `kiyota_dragapult_ex_l6deck` — L6 deck-mining fork (cluster 142 sides/62.7% WR, jaccard 0.739). Local μ 500.9 vs parent 617.3 (Δ −116.4, clear regression, outside noise band). Archetype's real/local relationship: **inverted** — real ladder (698.5) *higher* than local (615.9-617.3). Uploaded last per "arm that matters most reads last" convention. | COMPLETE | **581.7** |
 
-**Quota for 2026-08-12: 2 remaining today.** Both new refs now occupy the 2 active/episode-accumulating
+**Quota for 2026-08-12: 2 remaining that day.** Both new refs occupied the 2 active/episode-accumulating
 slots, displacing `55453383` (archaludon_lossfix, 603.8) and `55416420` (soutasakurai_libraryout_crustle,
-744.6, our best real reading) from that pair — those two keep their last-known readings but stop
-accumulating episodes until re-uploaded. Check back for a settled 2nd reading on both new refs before
-drawing any conclusion; per project convention, act on the first reading rather than waiting indefinitely,
-but note the initial "600.0" is a shared placeholder for both and not yet informative.
+744.6, our best real reading) from that pair while accumulating.
+
+**Settled readings (2026-08-13):**
+- `kiyota_mega_lucario_ex_l6deck` **516.4** vs. parent's real 439.9-450.9 → **real improvement, +66 to +76**.
+  Local was a wash/slight regression (Δ −8.9) — the divergence hypothesis paid off here: local noise-band
+  wash did NOT predict the real-ladder direction. This fork is a genuine upgrade over its own archetype's
+  stock deck on the real ladder, though still well below roster leaders (crustle 744.6, alakazam_dunsparce
+  694.6, archaludon_lossfix 603.8). Candidate worth keeping in mind for Final Submission slot discussion,
+  not the current best but a confirmed real improvement over a weak parent.
+- `kiyota_dragapult_ex_l6deck` **581.7** vs. parent's real 698.5 → **real regression**, same direction as
+  local (which said Δ −116.4). The documented local/real *inversion* for this archetype did not save this
+  particular change — local FAIL and real FAIL agree here.
+
+**Net: 1 of 2 locally-failed candidates turned out to be a real improvement.** Confirms the local
+gate genuinely lacks resolving power for within-archetype deck-mining changes on at least one of two
+tested cases — consistent with `evaluation-methodology.md`'s calibration table, and justifies the
+user's call to submit despite local failure. `kiyota_mega_lucario_ex_l6deck`'s `SUBMITTED_DESPITE_LOCAL_WASH.md`
+marker is now stale in tone (it undersold this fork) but the underlying local numbers in it remain accurate.
