@@ -1807,3 +1807,33 @@ entry for `55336268` (698.5 recorded vs 688.0 live), and the 12 unregenerable ta
 
 Tasks 5 and 6 both closed. Remaining: Task 7 (manual Final Submission selection, 2026-08-16) and
 the still-open 08-14/08-15 upload-pair decisions.
+
+## 2026-08-13 (cont.) — aristophanivan MultiPly extracted, quota held for today
+
+Extracted the last untried public-kernel candidate: `aristophanivan/multiply-agent-best-940-lb`
+("940 LB" claim). `submissions/aristophanivan_multiply/` created — `main.py` (24,226 bytes, from
+notebook cell 2's `%%writefile main.py`), `deck.csv` (60-card `DECK` from cell 1), `cg/` copied
+from `jazivxt_alakazam`, `PROVENANCE.md`. Notable: the notebook's own markdown calls this "a
+strictly heuristic agent," but `main.py` imports `search_begin`/`search_step` from `cg.api` — the
+same real forward-search primitives `archaludon_search`'s PIMC layer uses. A third
+architecturally-distinct candidate (search-based, alongside PIMC and jazivxt's 2-ply minimax),
+contrary to its own description.
+
+Preflight: `py_compile` clean; no `__file__` reference anywhere in the file (deck-path fallback
+uses `os.path.exists("deck.csv")` → `/kaggle_simulations/agent/deck.csv`, safe under `exec()`);
+stripped-`sys.path` 5-battle smoke via `runpy` — 5/5 wins, no crashes; tarball built, `tar -tzf`
+lists exactly `main.py`, `deck.csv`, `cg/*`, 1.9 MB, no `__pycache__`. Committed via `git add -f`
+at creation (commit `f42c84e`). Local frozen-panel read launched in background
+(`data/processed/ratings/aristophanivan_multiply.json`), informational only per Task 4's rule —
+not a promotion/kill signal.
+
+**Quota decision for 08-13: hold.** 4 successful uploads already landed today
+(kojimar_lucario, archaludon_hardening_v1, lucifer19_archaludon_a, jazivxt_alakazam); the two most
+recent (lucifer19 705.8, jazivxt 689.6) are the currently-accumulating pair and just got their
+first real readings. A 5th upload today would starve one of them mid-settle for no informational
+gain — the new aristophanivan candidate is prep for the **08-14** pair, not today's.
+
+**08-14 candidate pool:** `aristophanivan_multiply` (pending local read), and a second real
+reading for `archaludon_hardening_v1` (single read 664.8, historical sibling bytes span
+680.5-774.8 — wide enough that a second reading matters for Task 7's eventual pick between it and
+whatever else is settled by 08-16).
