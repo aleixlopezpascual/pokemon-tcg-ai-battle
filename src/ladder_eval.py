@@ -313,11 +313,13 @@ def _interleave(per_opponent: dict) -> list:
     return out
 
 
-def panel_version(panel: list, games: int) -> str:
+def panel_version(panel: list, games: int, rate_tau: float = 0.0) -> str:
+    # rate_tau is hashed in so a rating produced with the wrong tau (see rate_candidate's
+    # rate_against_fixed call) can never silently compare against one fit at tau=0.
     payload = json.dumps(
         {"panel": sorted(Path(p).name for p in panel), "games_per_pair": games,
          "mu": DEFAULT_MU, "sigma": DEFAULT_SIGMA, "beta": DEFAULT_BETA,
-         "sigma_floor": PANEL_SIGMA_FLOOR},
+         "sigma_floor": PANEL_SIGMA_FLOOR, "rate_tau": rate_tau},
         sort_keys=True,
     )
     return hashlib.sha256(payload.encode()).hexdigest()[:12]
@@ -441,7 +443,10 @@ def rate_candidate(candidate: Path, panel: list, games: int, workers: int,
         total_wins += k
         total_games += n
 
-    rating = rate_against_fixed(Rating(), _interleave(per_opponent))
+    # tau=0.0 to match how the panel itself was fit (fit_panel:363,365). Leaving this at the
+    # rate_against_fixed default (tau=2.0) turns the estimator into a ~300-game EWMA whose sigma
+    # floors near 19 -- an 8x-too-wide noise band that invalidated several past parity calls.
+    rating = rate_against_fixed(Rating(), _interleave(per_opponent), tau=0.0)
     pooled = total_wins / total_games if total_games else 0.0
     return {
         "candidate": candidate.name,
@@ -489,6 +494,9 @@ def main():
                    help="reserve N panel members and report them separately (roster-overfit check)")
     r.add_argument("--dump-states", help="harvest the candidate's own trajectory states to this dir")
     r.add_argument("--json", help="also write the result dict here, for calibration_tracker.py")
+    r.add_argument("--exclude", nargs="*", default=[],
+                   help="panel member names to drop from the opponent field (e.g. a fork's "
+                        "parent), matching what compare's blocked field already does")
 
     c = sub.add_parser("compare", help="Blocked head-to-head on an identical field")
     c.add_argument("--a", required=True)
@@ -506,10 +514,11 @@ def main():
 
     if args.cmd == "rate":
         cand = Path(args.candidate).resolve()
+        exclude = set(args.exclude or [])
         if args.holdout:
             held = {Path(p).name for p in panel[-args.holdout:]}
             seen = rate_candidate(cand, panel, args.games, args.workers,
-                                  args.dump_states, exclude=held)
+                                  args.dump_states, exclude=held | exclude)
             print_result(seen, label="[seen field]")
             held_res = rate_candidate(
                 cand, [p for p in panel if Path(p).name in held], args.games, args.workers)
@@ -518,7 +527,8 @@ def main():
             print(f"\n  seen-vs-heldout mu gap: {gap:+.1f}"
                   f"   (large positive => tuned to the panel, treat local mu as optimistic)")
         else:
-            res = rate_candidate(cand, panel, args.games, args.workers, args.dump_states)
+            res = rate_candidate(cand, panel, args.games, args.workers, args.dump_states,
+                                 exclude=exclude)
             print_result(res)
             if args.json:
                 Path(args.json).parent.mkdir(parents=True, exist_ok=True)
