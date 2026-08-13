@@ -1696,5 +1696,114 @@ background; commit and hold for the 08-14 pair pending that result.
   fixes, so a merged variant is a candidate follow-up. Preflight clean (5/5 local smoke wins, tarball
   verified). Never measured, never uploaded under this repo.
 
-Both committed via `git add -f` with `PROVENANCE.md`. Informational local reads (Task 4 Step 4) and
-the 08-14 upload-pair ordering decision are next, gated on the `archaludon_search` veto result.
+Both committed via `git add -f` with `PROVENANCE.md`.
+
+## 2026-08-13 (cont.) — archaludon_search ERRORs twice on real Kaggle, PIMC-search track dead
+
+**Today's real-ladder results, first readings (all still settling):**
+
+| ref | agent | status | score |
+|---|---|---|---|
+| `55483873` | `kojimar_lucario` | COMPLETE | 646.9 |
+| `55483875` | `archaludon_hardening_v1` | COMPLETE | 664.8 |
+| `55491353` | `lucifer19_archaludon_a` | COMPLETE | 675.8 |
+| `55491354` | `archaludon_search` (PIMC-CRN) | **ERROR** | — |
+
+Panel non-regression veto for `archaludon_search` (Task 3 Step 5) came back **PASS** while the
+upload was already in flight: local mu 674.4 (sigma 1.2) vs 673.6 parent, no regression
+(`data/processed/ratings/archaludon_search_crn.json`). The gate that mattered locally passed; the
+agent still could not ship.
+
+Resubmitted the identical tarball unmodified (`55491504`) to distinguish a transient Kaggle-side
+flake from a deterministic failure, since local review found no unguarded exception path: `agent()`
+wraps `search_reorder` in try/except with a legal `random.sample` fallback, both search-state loops
+(lethal/veto pass and PIMC pass) release every live search id via try/finally on every path, the
+bundled `cg/libcg.so` is confirmed genuine Linux x86-64 ELF (byte-identical to the copy shipped in
+`archaludon_hardening_v1`, which is COMPLETE — rules out a platform mismatch), and every `__file__`
+read is `NameError`-guarded. **The resubmit ERRORed too (`55491504`)** — deterministic, not a flake.
+No error text is available from the Kaggle CLI/API for simulation-competition submissions, so the
+root cause inside the PIMC layer is unknown. Two upload attempts is this lever's budget per the plan's
+Global Constraints ("Max 2 iterations per lever, then move on"); **`archaludon_search` is dead for
+this deadline.** Neither ERROR counted against the daily quota.
+
+**`jazivxt_alakazam` took the freed slot instead**, per the plan's explicit fallback ("ship jazivxt
+Alakazam in its place"). Its local frozen-panel read (Task 4 Step 4, tau=0, 28000 games) came back
+**mu 741.4 (sigma 1.3), pooled WR 78.9%** — the single highest local read of the entire roster,
+beating even `soutasakurai_libraryout_crustle` (685.7 local / 744.6 real). One sharp weakness: it
+loses 33.2% of the time specifically to `soutasakurai_libraryout_crustle` (vs 77-99% win rate
+everywhere else), so its real ceiling may be capped by how much `libraryout`-style decks it meets.
+Never before measured on the real ladder; uploaded now rather than holding for the scheduled 08-14
+pair, since the accumulating slots currently held only two settled-ish agents
+(`archaludon_hardening_v1`, `lucifer19_archaludon_a`) and jazivxt's local signal is strong enough to
+want a real reading as early as possible. This freezes `archaludon_hardening_v1` at its single early
+664.8 reading (noisy, not settled) — accepted, since its behavior is already well-characterized by
+the historical near-identical readings of `55327510` (774.8) and `55330407` (711.4), and a second
+real reading for it can still be bought on 08-15 if it remains a Final Submission candidate.
+
+**Remaining daily quota: 1 upload available today, held for 08-14.**
+
+`lucifer19_archaludon_a` local read landed: mu 681.3 (sigma 1.2), pooled WR 66.4%
+(`data/processed/ratings/lucifer19_archaludon_a.json`, 28000 games) — well below jazivxt's 741.4,
+roughly a coin flip against `masamikobayashi_archaludon_cinderace` (52.2% head-to-head), and weak vs
+`soutasakurai_libraryout_crustle` (31.9%) and `biohack44_alakazam_dunsparce` (49.3%). Informational
+only per the plan (local is a veto/ordering signal, never a promotion signal) — it already has a real
+COMPLETE reading at 675.8 (`55491353`), so this just confirms the two instruments roughly agree here.
+Task 4 is now fully complete: both public-kernel candidates extracted, preflighted, committed with
+`PROVENANCE.md`, uploaded, and locally read. Secrets-scanner catch-up run over all of today's commits
+and uploads (four new submission dirs, the PIMC-CRN diff, this doc) — clean, no findings.
+
+Next: Task 5 (matched-field re-gate of the `archaludon_lossfix` −13.8 mu verdict under the fixed
+tau=0 estimator) and Task 6 (Crustle exception-fallback fix), subordinate to the upload schedule
+throughout. The 08-14 upload pair still needs deciding: `lucifer19_archaludon_a`'s slot occupancy
+question is moot (already uploaded 08-13); the held slot goes to whichever of the remaining
+candidates (`aristophanivan__multiply-agent-best-940-lb`, not yet forked) or a second reading for a
+noisy single-read agent (`archaludon_hardening_v1` at 664.8) matters most.
+
+## 2026-08-13 (cont.) — Task 5 and Task 6 closed
+
+**Task 6 (Crustle exception-fallback bug) was already fixed.** Checked
+`submissions/soutasakurai_libraryout_crustle/main.py`'s `agent()` exception handler: it already
+computes `min_count`/`max_count` from the raw `select` dict and returns
+`list(range(min(min_count, max_count, len(options))))` — the deterministic clamped-minimal
+pattern the plan specified, not the ~60-card-id dump that got #730707 rejected. Verified with a
+throwaway harness (`$CLAUDE_JOB_DIR/tmp/test_crustle_fallback.py`): an exception with a real select
+context returns a single legal index, `minCount > maxCount` clamps correctly, and the *other*
+`select is None` case (deck submission at battle start, confirmed as the correct legitimate use of
+`read_deck_csv()` by checking the same pattern in `masamikobayashi_archaludon_cinderace`,
+`lucifer19_archaludon_a`, and a comment in `kiyota_dragapult_ex`) is unaffected. No commit needed —
+the fix predates this session's Task 6 dispatch. Task 6 closed.
+
+**Task 5 Step 2 — the decisive re-gate.** Re-ran `archaludon_lossfix` on the matched 6-opponent
+field (`--exclude masamikobayashi_archaludon_cinderace`, 4000 games/opponent, tau=0):
+
+| candidate | mu | pooled WR |
+|---|---|---|
+| `masamikobayashi_archaludon_cinderace` (parent) | 676.3 | 67.7% |
+| `archaludon_lossfix` (matched field) | 678.1 | 68.1% |
+
+**+1.8 mu, +0.36pp** — matches the plan's predicted +1.5mu/+0.34pp almost exactly, and decisively
+overturns the old −13.8 mu verdict (measured on an unmatched 7-opponent field including its own
+near-duplicate parent) that closed the entire mechanism-search track in
+`mechanism-search-retro.md`. The −13.8 mu reading was an artifact of the missing opponent-blocking
+parity between `rate` and `compare` (Task 1 Step 3), not a real regression.
+
+**Task 5 Step 1 — stale-file audit.** 12 of the 28 `data/processed/ratings/*.json` files carry
+`local_sigma` ≈ 19-21 (tau=2-contaminated, pre-fix). All 12 belong to candidate directories that no
+longer exist (intent-PIMC gate 3/4/5 experiments, L6 deck-variant forks) — killed per the "max 2
+iterations per lever" rule before this session, so there is nothing to re-run them against. Flagged
+by name in `evaluation-methodology.md` (new "Remaining instrument defects" section) rather than
+silently left to be mistaken for comparable data.
+
+**Task 5 Step 3 — best-score record corrected** in `mechanism-search-retro.md`: both citations of
+744.6 as our best real submission replaced with 774.8 (`55327510`), with a note on the three
+top-five artifacts whose source was never preserved (this one — since reconstructed as
+`archaludon_hardening_v1` — Kiyota Dragapult raw at 738.1, and masamikobayashi Archaludon raw v6 at
+643.1).
+
+**Task 5 Step 4 — instrument defects flagged, not fixed**, in `evaluation-methodology.md`: the
+5-distinct-decklist panel, invisible agent crashes, inconsistent draw-sentinel handling across the
+three harnesses, `local_eval.py`'s missing `sys.modules` isolation, the stale `calibration.csv`
+entry for `55336268` (698.5 recorded vs 688.0 live), and the 12 unregenerable tau=2 files above.
+
+Tasks 5 and 6 both closed. Remaining: Task 7 (manual Final Submission selection, 2026-08-16) and
+the still-open 08-14/08-15 upload-pair decisions.

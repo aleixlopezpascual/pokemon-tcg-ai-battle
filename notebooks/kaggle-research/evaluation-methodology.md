@@ -382,3 +382,47 @@ it did **not** demonstrate that local evaluation now predicts the ladder — n=5
 p=0.133, and the falsifiable prediction that motivated the work failed. The largest real score
 movement so far still came from a correctness bug fix (+128 μ from the `random.sample` clip), not
 from better measurement.
+
+## Remaining instrument defects — flagged 2026-08-13, not fixed (LB-endgame plan Task 5 Step 4)
+
+Found during the LB-endgame audit alongside the tau=2/tau=0 bug (already fixed). Each is real and
+verified against current code; none is fixed here — logged so a future session does not re-derive
+them from scratch, and so nobody mistakes silence for absence of the problem.
+
+- **The frozen panel covers only 5 distinct decklists, not 7 agents' worth of diversity.**
+  `masamikobayashi_archaludon_cinderace` and `il_agent_v2b` ship a byte-identical 60-card
+  multiset; `kiyota_mega_lucario_ex` and `aristophanivan_probablity_v2` are Jaccard 1.00 on card
+  set. Any candidate that is itself an Archaludon or Mega-Lucario variant effectively gets tested
+  against its own archetype twice.
+- **Agent crashes are invisible to every harness.** `ladder_eval.py:205-207` counts an error only
+  when `battle_start` itself returns `None`; there is no try/except around `agents[slot](obs)` at
+  `:222` — an exception there propagates and kills the whole batch rather than being scored as a
+  loss, and every panel agent additionally swallows its own exceptions into a legal random move,
+  so a candidate that occasionally throws looks identical to one that never does.
+- **Draw handling is inconsistent, though draws may not occur in practice.** `cg/api.py`'s
+  `result` and all 299 real episodes observed so far are consistent with there being no draws
+  (this file's own "There are no draws" note above) — but nothing in `ladder_eval.py` or
+  `local_eval.py` checks for one; both read `winner_slot = obs["current"]["result"]` and compare
+  `winner_slot == 0` directly, so if the engine ever emitted a draw sentinel it would silently
+  fold into a win/loss coin flip. `blunder_finder.py:211` assumes a *different* sentinel (`-2`)
+  for the same field and is the only one of the three that branches on it explicitly. The three
+  harnesses do not agree with each other on what a draw looks like.
+- **`local_eval.py:72-73` loads agents under fixed module names** (`rb.load_agent(path,
+  "candidate_main")` / `"opponent_main"`) with no `sys.modules` isolation — the exact hazard
+  `ladder_eval._load_agent_isolated` (`:129-170`) exists to prevent. Two agents that both define
+  a module-level helper of the same name in this harness would collide.
+- **`data/processed/calibration.csv` still records a stale reading.** Line 6:
+  `kiyota_dragapult_ex,...,55336268,698.5;698.5,698.5,...` — the live Kaggle API reports this
+  submission at 688.0. The 10.5 μ staleness propagates into anything that cites this file's
+  calibration correlation (ρ=+0.80 above was computed before this was caught; re-deriving it is
+  out of scope for this deadline).
+- **12 `data/processed/ratings/*.json` files are tau=2-contaminated (`local_sigma` ≈ 19-21) and
+  cannot be regenerated**, because their candidate directories no longer exist (transient
+  intent-PIMC gate experiments and L6 deck forks, killed per the "max 2 iterations per lever"
+  rule): `archaludon_intent_gate3.json`, `archaludon_intent_gate3_il.json`,
+  `archaludon_intent_gate3_v2.json`, `archaludon_intent_gate4_energyvis.json`,
+  `archaludon_intent_gate5_pimcgate.json`, `archaludon_search_pimc_v1.json`,
+  `archaludon_search_pimc_mirror.json`, `l6_kiyota_dragapult_ex_baseline.json`,
+  `l6_kiyota_dragapult_ex_l6deck.json`, `l6_kiyota_mega_lucario_ex_baseline.json`,
+  `l6_kiyota_mega_lucario_ex_l6deck.json`. Treat any `local_sigma` above ~2 in that directory as
+  a dead instrument reading, not a comparable number — do not resurrect these values.

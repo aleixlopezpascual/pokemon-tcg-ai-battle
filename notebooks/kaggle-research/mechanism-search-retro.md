@@ -1,7 +1,10 @@
 # Mechanism-search retrospective (IL + rating/behavior prior + deck mining), 2026-08-07 to 2026-08-13
 
-**Status at close: no new agent beats the existing roster. Best real submission remains
-`soutasakurai_libraryout_crustle` at 744.6. This effort is exhausted for the 2026-08-16 deadline;
+**Status at close: no new agent beats the existing roster. Best real submission is actually
+`55327510` (masamikobayashi Archaludon, hardening pass 1) at 774.8, not the 744.6 previously
+recorded here for `soutasakurai_libraryout_crustle` — corrected 2026-08-13 per the LB-endgame audit;
+see Task 5. That code was not preserved in the repo and has been reconstructed as
+`submissions/archaludon_hardening_v1/`. This effort is exhausted for the 2026-08-16 deadline;
 remaining runway should go to real-ladder confirmation reads and manual Final Submission
 selection (lever L7), not further model/rule engineering.**
 
@@ -142,14 +145,19 @@ divergence.** This does not extend to candidates that fail by a large margin aga
 never close enough to be plausible local-instrument noise).
 
 **Important caveat on magnitude:** even the winning case, 516.4, remains far below the roster's
-actual best (744.6). This test resolved a local/real calibration question; it did not produce a
+actual best (774.8). This test resolved a local/real calibration question; it did not produce a
 new best agent.
 
 ## Net outcome and what's still true
 
 - No agent produced in this session beats the existing roster. The standing objective ("an agent
   that beats all our others locally") remains unmet by anything from Tracks 1-3 or the L6 forks.
-- Best real submission is unchanged: `soutasakurai_libraryout_crustle`, 744.6 (ref `55416420`).
+- Best real submission is `55327510`, 774.8 (masamikobayashi Archaludon, hardening pass 1) —
+  corrected 2026-08-13; previously misrecorded here as `soutasakurai_libraryout_crustle` at 744.6
+  (ref `55416420`, itself still our second-best genuine reading). Three of the roster's top-five
+  scoring artifacts have no preserved source: this one, Kiyota Dragapult raw (738.1), and
+  masamikobayashi Archaludon raw v6 (643.1) — only the 774.8 agent has since been reconstructed
+  (`submissions/archaludon_hardening_v1/`, LB-endgame plan Task 2).
 - The mechanism-search path (trained scorers, trained class priors, rule edits, deck mining) is
   exhausted for this deadline — every lever failed its own pre-registered falsifier, and the
   plan's own escalation table has no further step short of L7.
