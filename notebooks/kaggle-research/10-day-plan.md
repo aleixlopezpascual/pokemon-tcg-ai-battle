@@ -1667,3 +1667,34 @@ be silently compared.
 
 Both preflighted (py_compile clean, `__file__`/no-`__file__` guard verified, stripped-sys.path 5-battle
 smoke clean, tarball members verified with no `__pycache__`) and secrets-scanned clean before upload.
+
+**PIMC CRN fix (`archaludon_search`, Task 3).** Applied all three fixes from the audit in one change:
+Common Random Numbers (world generation hoisted out of `_pimc_score` into `_generate_pimc_worlds`,
+called once per decision, every candidate scored against the same K worlds), per-candidate budget
+slices replacing the shared deadline, and tie-breaking by scored-world-count instead of candidate
+order. 200-battle override-rate gate (no ladder cost): **21.3% (46/216 pimc_decisions)** — inside the
+required [10%, 40%] band, up from the pre-fix 0.8%. Gate PASS. Panel non-regression veto
+(`data/processed/ratings/archaludon_search_crn.json`, tau=0, 4000 games/opponent) running in the
+background; commit and hold for the 08-14 pair pending that result.
+
+**Extracted the two remaining public-kernel candidates (Task 4):**
+
+- `jazivxt_alakazam` — public Kaggle kernel `jazivxt/codex-sol-eclipse-alakazam` ("LB 950+",
+  `romanrozen/strong-start-baseline-agent-v10-lb-950` is byte-identical apart from a trailing newline).
+  The pulled file is a notebook-packaging script; `main.py`/`deck.csv` are its `MAIN_SOURCE` (55,611
+  chars) / `DECK_SOURCE` raw-string literals extracted verbatim. Architecturally distinct: an
+  evolutionary-tuned `WEIGHTS` genome feeding a real 2-ply determinized minimax (`_search_decide`),
+  not a single-ply scored-option heuristic. Preflight clean (py_compile, `__file__` guard already
+  exec-safe, 5/5 local smoke wins, tarball verified). Never measured, never uploaded under this repo.
+- `lucifer19_archaludon_a` — public Kaggle kernel `lucifer19/battlecore-compact-agent` ("Max-Efficiency
+  Challenger Build V4"), Profile A only (Archaludon Metal Tempo). Payload is base64+zlib+JSON in the
+  notebook's cell 1 (`AGENT_PAYLOADS`); extracted and its SHA-256 self-check (`main_hash`/`deck_hash`)
+  verified against the decoded bytes before writing — both matched. ~0.975 similarity to
+  `masamikobayashi_archaludon_cinderace`: clamps selection counts and replaces the crash-fallback
+  `random.sample` with a deterministic `range(max_count)`, the same bug class `archaludon_lossfix`
+  fixed (+128.5 mu) but without its `_boss_has_lethal()` gate or Lillie/Metal-Energy rule — disjoint
+  fixes, so a merged variant is a candidate follow-up. Preflight clean (5/5 local smoke wins, tarball
+  verified). Never measured, never uploaded under this repo.
+
+Both committed via `git add -f` with `PROVENANCE.md`. Informational local reads (Task 4 Step 4) and
+the 08-14 upload-pair ordering decision are next, gated on the `archaludon_search` veto result.
