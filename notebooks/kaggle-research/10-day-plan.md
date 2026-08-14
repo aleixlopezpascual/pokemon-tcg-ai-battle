@@ -2018,3 +2018,34 @@ across all 6 looks more like a real (if noisy-instrument-attenuated) regression 
 noise, even though it's inside the 25mu veto band. This does not override the pre-registered
 PASS — no post-hoc vetoing — but it lowers confidence Variant B is actually an improvement
 worth spending a round on, and is logged here for Task 5/6 upload-order judgment.
+
+### Round 1 upload — 2026-08-14, ~09:47 UTC
+
+`secrets-scanner` ran first: PASS, no blockers (non-blocking note: stray untracked `deck.csv`
+at repo root, harmless, left in place). Quota check at 09:46 UTC: 2 uploads already made today
+at 00:07 UTC (`archaludon_hardening_v1` 2nd read, `aristophanivan_multiply`), 3 remained —
+matches the plan's assumption.
+
+Uploaded control first, variant last (important-arm-last rule):
+
+| ref | candidate | uploaded (UTC) | status at upload |
+|---|---|---|---|
+| `55502693` | `lucifer19_archaludon_a` (control, unmodified) | 2026-08-14 09:46:58 | PENDING |
+| `55502697` | `lucifer19_lossfix_merge` (Variant A) | 2026-08-14 09:47:10 | PENDING |
+
+1 submission remaining today (held for tomorrow / contingency).
+
+**Round-1 decision rule, pre-registered 2026-08-14 09:47 UTC, before reading any score:**
+- Let `C` = the control's (`55502693`) settled score and `V` = the variant's (`55502697`),
+  both read no earlier than T+4h (~13:47 UTC) and both confirmed `SubmissionStatus.COMPLETE`.
+- **V >= C:** Variant A is a live Final Submission candidate. Round 2 (08-15) ships
+  `lucifer19_threatgate` against it.
+- **C − 50 <= V < C:** inconclusive, inside the noise floor. Round 2 ships
+  `lucifer19_threatgate` against the control, and Final selection falls back to whichever of
+  control/Variant A has the better *settled* history.
+- **V < C − 50:** Variant A regressed beyond the noise floor. Discard it (max 2 iterations per
+  lever already spent: local gate + this real read). Round 2 becomes a third
+  `lucifer19_archaludon_a` read plus an `archaludon_hardening_v1` read instead of a second
+  variant, to pin both lineages down for Final selection.
+- A submission sitting at mu0 = 600.0 with ~24s runtime is starved, not measured (`55371582`
+  precedent) and must be discarded as a reading, not interpreted.
