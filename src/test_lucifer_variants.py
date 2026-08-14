@@ -278,6 +278,107 @@ def main():
         matchup == "generic", f"got {matchup!r}",
     )
 
+    # ── Variant B (lucifer19_threatgate): threat-gate wiring for opp_max_damage ──
+
+    m2 = _load_candidate("lucifer19_threatgate")
+    if m2 is None:
+        print("skip: submissions/lucifer19_threatgate/main.py not found")
+    else:
+        # 1: _active_dies_next_turn True/False around the Crustle ceiling (120).
+        st_dies = state(
+            you=player(active=pokemon(DURA, hp=100, max_hp=100)),
+            opp=player(active=pokemon(CRUSTLE, hp=130)),
+        )
+        check(
+            "_active_dies_next_turn True when Active HP <= Crustle's 120 damage ceiling",
+            m2._active_dies_next_turn(obs(st_dies)) is True,
+        )
+        st_survives = state(
+            you=player(active=pokemon(DURA, hp=150, max_hp=150)),
+            opp=player(active=pokemon(CRUSTLE, hp=130)),
+        )
+        check(
+            "_active_dies_next_turn False when Active HP > Crustle's 120 damage ceiling",
+            m2._active_dies_next_turn(obs(st_survives)) is False,
+        )
+
+        # 2: no Active on the field -- must degrade to False, not raise.
+        st_no_active = state(you=player(active=None), opp=player(active=pokemon(CRUSTLE, hp=130)))
+        try:
+            no_active_result = m2._active_dies_next_turn(obs(st_no_active))
+            no_active_raised = False
+        except Exception as e:
+            no_active_result, no_active_raised = None, e
+        check(
+            "_active_dies_next_turn returns False (not a raise) when there is no Active",
+            no_active_result is False and no_active_raised is False,
+            f"result={no_active_result!r} raised={no_active_raised!r}",
+        )
+
+        # 3: an attack-ready retreat (13000) still dominates even with a lethal threat present.
+        st_offensive_retreat = state(
+            you=player(
+                active=pokemon(DURA, hp=100, max_hp=100, energy_cards=[card(METAL)] * 2),
+                bench=[pokemon(DURA, hp=130, energy_cards=[card(METAL)] * 3)],
+            ),
+            opp=player(active=pokemon(CRUSTLE, hp=130)),
+            energy_attached=True,  # blocks the Active's own direct attack route
+        )
+        retreat_opt = Option(type=OptionType.RETREAT)
+        score_r3, reason_r3 = m2.score_retreat(obs(st_offensive_retreat), retreat_opt)
+        check(
+            "score_retreat: offensive retreat (13000) wins over the lethal-threat branch",
+            score_r3 == 13000, f"got {score_r3!r} ({reason_r3!r})",
+        )
+
+        # 4: no attack-ready retreat available -- the new threat branch decides.
+        def threat_retreat_state(bench):
+            return state(
+                you=player(active=pokemon(NON_ARCHALUDON, hp=100, max_hp=100), bench=bench),
+                opp=player(active=pokemon(CRUSTLE, hp=130)),
+            )
+
+        st_bench_survives = threat_retreat_state([pokemon(NON_ARCHALUDON, hp=150, max_hp=150)])
+        score_r4a, reason_r4a = m2.score_retreat(obs(st_bench_survives), retreat_opt)
+        check(
+            "score_retreat: 6000 when Active dies next turn and a bench Pokemon survives the ceiling",
+            score_r4a == 6000, f"got {score_r4a!r} ({reason_r4a!r})",
+        )
+
+        st_bench_dies_too = threat_retreat_state([pokemon(NON_ARCHALUDON, hp=50, max_hp=50)])
+        score_r4b, reason_r4b = m2.score_retreat(obs(st_bench_dies_too), retreat_opt)
+        check(
+            "score_retreat: -100 (default) when no bench Pokemon survives the ceiling",
+            score_r4b == -100, f"got {score_r4b!r} ({reason_r4b!r})",
+        )
+
+        # 5: attach_target_score's -4000 threat penalty applies below 2 energy, not at 2.
+        def threat_attach_state(energy):
+            active = pokemon(DURA, hp=100, max_hp=100, energy_cards=[card(METAL)] * energy)
+            st = state(you=player(active=active, bench=[]), opp=player(active=pokemon(CRUSTLE, hp=130)))
+            return obs(st), active
+
+        obs_e0, active_e0 = threat_attach_state(0)
+        score_a0 = m2.attach_target_score(obs_e0, active_e0, AreaType.ACTIVE)
+        check(
+            "attach_target_score: -4000 threat penalty applies at energy_count 0",
+            score_a0 == 6700, f"got {score_a0!r}",
+        )
+
+        obs_e2, active_e2 = threat_attach_state(2)
+        score_a2 = m2.attach_target_score(obs_e2, active_e2, AreaType.ACTIVE)
+        check(
+            "attach_target_score: no threat penalty at energy_count 2 (ramp-to-attack stays reachable)",
+            score_a2 == 18700, f"got {score_a2!r}",
+        )
+
+        # Variant A's own tests must still pass unchanged against Variant B's namespace.
+        score_lillie_b, _ = m2.score_play(o1, lillie_opt1)
+        check(
+            "Variant B still carries Variant A's Lillie graft unchanged",
+            score_lillie_b == 5000, f"got {score_lillie_b!r}",
+        )
+
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILURE(S): {FAILURES}")

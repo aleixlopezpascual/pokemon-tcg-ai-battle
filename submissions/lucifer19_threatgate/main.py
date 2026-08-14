@@ -454,6 +454,19 @@ def opp_max_damage(obs):
     return 220
 
 
+def _active_dies_next_turn(obs):
+    """True iff the opponent's per-matchup damage ceiling meets or exceeds our Active's
+    remaining HP. opp_max_damage() was defined in the source kernel and never called;
+    this is its first consumer."""
+    active = active_pokemon(obs)
+    if not active:
+        return False
+    try:
+        return opp_max_damage(obs) >= active.hp
+    except Exception:
+        return False
+
+
 # ── Overrides ──
 
 def apply_overrides(obs, opt, score, reason):
@@ -811,6 +824,9 @@ def attach_target_score(obs, target, area):
     else:
         score = 1000 + (1000 if e == 0 else 0)
 
+    if _active_dies_next_turn(obs) and target is active_pokemon(obs) and e < 2:
+        score -= 4000  # don't sink setup energy into a Pokemon that dies before it attacks
+
     # HP-based adjustment
     if target.hp > 0:
         max_hp = getattr(target, "maxHp", target.hp)
@@ -853,6 +869,10 @@ def score_retreat(obs, opt):
     route = archaludon_ex_attack_route(obs)
     if route and route["needs_retreat"]:
         return 13000, "retreat to attack-ready ex"
+    if active and _active_dies_next_turn(obs) and retreat_cost(active) <= energy_count(active):
+        ceiling = opp_max_damage(obs)
+        if any(p is not active and p.hp > ceiling for p in all_my_pokemon(obs)):
+            return 6000, "retreat: Active dies next turn, bench can absorb"
     return -100, "avoid retreat"
 
 
