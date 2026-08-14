@@ -2062,3 +2062,9 @@ V (743.3) >= C (704.6) -- currently satisfies the V>=C branch (+38.7mu gap). Not
 Note the control itself read 45.5mu below its own prior 750.1 read (`55491353`) -- inside the
 documented 50-65mu single-reading noise floor, so this is drift, not evidence the control
 regressed.
+
+**Decision taken at T+3h (2026-08-14 ~12:50 UTC), not T+4h:** user chose to act on this
+reading rather than wait out the scheduled T+4h recheck, consistent with the standing
+[[act-on-first-ladder-reading]] preference. V>=C branch applies: **Variant A
+(`lucifer19_lossfix_merge`) is the round-1 winner and live Final Submission candidate.**
+Round 2 (08-15) ships `lucifer19_threatgate` against it, per the pre-registered rule.
