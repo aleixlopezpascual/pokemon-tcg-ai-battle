@@ -1,0 +1,34 @@
+notebooks/kaggle-research/10-day-plan.md
+  s_65d71ceaf24a54::t_6304f4a11e94dc 2171-2191
+  s_65d71ceaf24a54::t_3ba0ae1f76ee5f 1943-1945
+  s_65d71ceaf24a54::t_db719b46398145 2018-2036
+  s_65d71ceaf24a54::t_768194e9348f77 1701-1755
+  s_65d71ceaf24a54::t_df5875719f28a2 1949-1950
+src/test_trueskill_lite.py
+  s_65d71ceaf24a54::t_adb9728216f652 223-292,303-306
+  s_65d71ceaf24a54::t_4c516fb320e57b 20
+src/ladder_eval.py
+  s_65d71ceaf24a54::t_6d672d8106ba1b 77
+  s_65d71ceaf24a54::t_70474877a8af3b 316-319,323
+  s_65d71ceaf24a54::t_423a7257ad7b5c 447-454
+CLAUDE.md
+  s_65d71ceaf24a54::t_88f78238f8c655 175-182
+src/trueskill_lite.py
+  s_65d71ceaf24a54::t_92b00b68d55da7 158-237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "cd8593db7c3be91b4c19b74c4e4bce484c1b8240",
+  "prompts": {},
+  "sessions": {
+    "s_65d71ceaf24a54": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "30f14ed8-8050-4564-940e-70c82e555e7c",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
