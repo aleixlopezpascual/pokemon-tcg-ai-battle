@@ -74,8 +74,8 @@ PANEL_RATINGS_PATH = REPO_ROOT / "data" / "processed" / "panel_ratings.json"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from trueskill_lite import (  # noqa: E402
     Rating,
+    fit_against_fixed,
     rate_1vs1,
-    rate_against_fixed,
     DEFAULT_MU,
     DEFAULT_SIGMA,
     DEFAULT_BETA,
@@ -313,13 +313,14 @@ def _interleave(per_opponent: dict) -> list:
     return out
 
 
-def panel_version(panel: list, games: int, rate_tau: float = 0.0) -> str:
-    # rate_tau is hashed in so a rating produced with the wrong tau (see rate_candidate's
-    # rate_against_fixed call) can never silently compare against one fit at tau=0.
+def panel_version(panel: list, games: int, candidate_estimator: str = "fit_against_fixed") -> str:
+    # candidate_estimator is hashed in so a rating produced under the old sequential
+    # rate_against_fixed(tau=0) filter (see git history of rate_candidate) can never silently
+    # compare against one fit with the order-free fit_against_fixed MLE (trueskill_lite.py).
     payload = json.dumps(
         {"panel": sorted(Path(p).name for p in panel), "games_per_pair": games,
          "mu": DEFAULT_MU, "sigma": DEFAULT_SIGMA, "beta": DEFAULT_BETA,
-         "sigma_floor": PANEL_SIGMA_FLOOR, "rate_tau": rate_tau},
+         "sigma_floor": PANEL_SIGMA_FLOOR, "candidate_estimator": candidate_estimator},
         sort_keys=True,
     )
     return hashlib.sha256(payload.encode()).hexdigest()[:12]
@@ -443,10 +444,14 @@ def rate_candidate(candidate: Path, panel: list, games: int, workers: int,
         total_wins += k
         total_games += n
 
-    # tau=0.0 to match how the panel itself was fit (fit_panel:363,365). Leaving this at the
-    # rate_against_fixed default (tau=2.0) turns the estimator into a ~300-game EWMA whose sigma
-    # floors near 19 -- an 8x-too-wide noise band that invalidated several past parity calls.
-    rating = rate_against_fixed(Rating(), _interleave(per_opponent), tau=0.0)
+    # fit_against_fixed fits the whole result set at once rather than filtering through it in
+    # arrival order. The sequential filter's sigma collapses within a few hundred games, so its mu
+    # was being decided by whichever results came back first: holding a real candidate's win
+    # counts fixed and only reshuffling the order moved the sequential mu across 39.4 mu (three
+    # independent 24,000-game runs); fit_against_fixed's mu is provably order-invariant and its
+    # sigma is a real Laplace posterior sd, not a game counter. See trueskill_lite.py's docstring
+    # and src/test_trueskill_lite.py's test_fit_is_order_invariant.
+    rating = fit_against_fixed(_interleave(per_opponent))
     pooled = total_wins / total_games if total_games else 0.0
     return {
         "candidate": candidate.name,

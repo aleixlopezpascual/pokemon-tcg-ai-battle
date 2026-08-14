@@ -17,6 +17,7 @@ import sys
 
 from trueskill_lite import (
     Rating,
+    fit_against_fixed,
     rate_1vs1,
     rate_against_fixed,
     win_probability,
@@ -219,6 +220,76 @@ def test_subset_invariance_misspecified():
           f"{mu_full:.2f} vs {mu_subset:.2f}")
 
 
+def test_fit_is_order_invariant():
+    """The property the sequential filter does not have, and the reason this estimator exists."""
+    print("fit_against_fixed is invariant to the order results arrive in")
+    panel = [Rating(681.6, 40.0), Rating(674.7, 40.0), Rating(653.4, 40.0),
+             Rating(584.4, 40.0), Rating(528.5, 40.0), Rating(443.4, 40.0)]
+    wins = [1664, 1313, 2610, 2912, 3699, 3942]
+    results = []
+    for opp, k in zip(panel, wins):
+        results.extend([(opp, True)] * k + [(opp, False)] * (4000 - k))
+
+    fitted, sequential = [], []
+    for seed in range(12):
+        shuffled = list(results)
+        random.Random(seed).shuffle(shuffled)
+        fitted.append(fit_against_fixed(shuffled).mu)
+        sequential.append(rate_against_fixed(Rating(), shuffled).mu)
+
+    fit_spread = max(fitted) - min(fitted)
+    seq_spread = max(sequential) - min(sequential)
+    check("fit mu is identical across orderings", fit_spread < 1e-6,
+          f"spread {fit_spread:.2e}")
+    check("the sequential filter is not, by a wide margin", seq_spread > 20.0,
+          f"sequential spread only {seq_spread:.1f}")
+
+
+def test_fit_recovers_a_known_skill():
+    """Simulate games from a known skill and check the fit finds it."""
+    print("fit_against_fixed recovers the skill that generated the data")
+    rng = random.Random(7)
+    true_skill = 760.0
+    panel = [Rating(mu, 30.0) for mu in (450.0, 550.0, 650.0, 750.0, 850.0)]
+    results = []
+    for opp in panel:
+        c = math.sqrt(2.0 * DEFAULT_BETA ** 2 + opp.sigma ** 2)
+        p_win = 0.5 * math.erfc(-((true_skill - opp.mu) / c) / math.sqrt(2.0))
+        for _ in range(20000):
+            results.append((opp, rng.random() < p_win))
+
+    fitted = fit_against_fixed(results)
+    check("mu within 15 of the generating skill", abs(fitted.mu - true_skill) < 15.0,
+          f"got {fitted.mu:.1f}, wanted {true_skill:.1f}")
+    check("Laplace sigma is small at 100k games", fitted.sigma < 6.0,
+          f"sigma {fitted.sigma:.2f}")
+    check("the generating skill is inside +/- 3 sigma",
+          abs(fitted.mu - true_skill) < 3.0 * fitted.sigma,
+          f"|{fitted.mu - true_skill:.1f}| vs 3*{fitted.sigma:.2f}")
+
+
+def test_fit_is_monotone_in_wins():
+    """More wins against the same field must never lower the fitted skill."""
+    print("fit_against_fixed is monotone in the win count")
+    opp = Rating(600.0, 40.0)
+    mus = [fit_against_fixed([(opp, True)] * k + [(opp, False)] * (2000 - k)).mu
+           for k in range(0, 2001, 200)]
+    check("monotone non-decreasing", all(b > a for a, b in zip(mus, mus[1:])),
+          f"{[round(m, 1) for m in mus]}")
+    check("a 50% record against a 600 opponent fits near 600",
+          abs(fit_against_fixed([(opp, True)] * 1000 + [(opp, False)] * 1000).mu - 600.0) < 1.0)
+
+
+def test_fit_stays_finite_on_a_clean_sweep():
+    """A 100% record has no maximum-likelihood estimate; the prior is what keeps it finite."""
+    print("fit_against_fixed stays finite when a candidate wins every game")
+    opp = Rating(443.4, 40.0)
+    swept = fit_against_fixed([(opp, True)] * 4000)
+    check("finite and bounded", math.isfinite(swept.mu) and swept.mu < 3000.0,
+          f"mu {swept.mu:.1f}")
+    check("above the opponent it swept", swept.mu > opp.mu, f"mu {swept.mu:.1f}")
+
+
 if __name__ == "__main__":
     for fn in (
         test_update_matches_first_principles,
@@ -229,6 +300,10 @@ if __name__ == "__main__":
         test_rank_recovery,
         test_subset_invariance_well_specified,
         test_subset_invariance_misspecified,
+        test_fit_is_order_invariant,
+        test_fit_recovers_a_known_skill,
+        test_fit_is_monotone_in_wins,
+        test_fit_stays_finite_on_a_clean_sweep,
     ):
         fn()
         print()

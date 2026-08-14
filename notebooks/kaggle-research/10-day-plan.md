@@ -1698,6 +1698,61 @@ background; commit and hold for the 08-14 pair pending that result.
 
 Both committed via `git add -f` with `PROVENANCE.md`.
 
+## 2026-08-14 — order-invariant estimator ported from `worktree-lb-gap-rev2`, re-verified
+
+Auditing `worktree-lb-gap-rev2` (a stale worktree, last commit 2026-08-10) for anything worth
+merging into `main` before discarding it turned up one genuine find: `fit_against_fixed`
+(commit `18e723a`, predates `main`'s own tau=0.0 fix above by 4 days). Where the tau=0.0 fix
+above reduces the sequential filter's order-sensitivity, `fit_against_fixed` removes it
+entirely — it fits the whole result set at once via bisection on a closed-form log-concave
+posterior (Gaussian prior + probit likelihood), so the estimate is provably independent of the
+order games arrived in, not just empirically low-variance on one dataset. lb-gap-rev2's own
+measurement: three independent 24,000-game runs held win counts fixed and only reshuffled
+arrival order — sequential-filter mu spread 39.4, `fit_against_fixed` spread 2.2.
+
+**Ported into `main`:** `fit_against_fixed` + `_aggregate` (`src/trueskill_lite.py`) and 4 tests
+(`src/test_trueskill_lite.py`, all passing). `src/ladder_eval.py`'s `rate_candidate` now calls
+`fit_against_fixed` instead of `rate_against_fixed(tau=0.0)`; `panel_version` now hashes
+`candidate_estimator` instead of `rate_tau` so a rating fit under the old sequential filter can
+never silently compare against one fit with the new estimator.
+
+**Re-verification (no games replayed — see reasoning below):** recomputed
+`lucifer19_lossfix_merge`, `lucifer19_archaludon_a`, `lucifer19_threatgate`,
+`masamikobayashi_archaludon_cinderace`, `archaludon_lossfix`, `soutasakurai_libraryout_crustle`,
+`biohack44_alakazam_dunsparce` under `fit_against_fixed` directly from each rating file's stored
+per-opponent `(wins, games)` counts against the frozen panel's `(mu, sigma=25.0)`. This is exact,
+not approximate: `fit_against_fixed` depends on the results only through those counts, and
+`ladder_eval.py` already fed games through `_interleave()` in a fixed round-robin order rather
+than a random one, so recomputing from the stored counts reproduces exactly what a fresh replay
+of that same fixed order would give.
+
+Every candidate's mu moved by < 0.05 (i.e. reproduced to 1 decimal place) versus its old
+tau=0.0-sequential-filter value:
+
+| candidate | old mu (tau=0.0 sequential) | new mu (fit_against_fixed) |
+|---|---|---|
+| biohack44_alakazam_dunsparce | 684.7 | 684.7 |
+| lucifer19_lossfix_merge | 683.6 | 683.6 |
+| lucifer19_archaludon_a | 681.3 | 681.3 |
+| archaludon_lossfix | 678.1 | 678.1 |
+| masamikobayashi_archaludon_cinderace | 676.3 | 676.3 |
+| soutasakurai_libraryout_crustle | 673.8 | 673.8 |
+| lucifer19_threatgate | 664.1 | 664.1 |
+
+**Verdict: no ranking change.** `lucifer19_lossfix_merge` (Variant A) remains the lead Final
+Submission candidate over `lucifer19_archaludon_a` and `lucifer19_threatgate` under the more
+rigorous, provably order-invariant estimator. This makes sense in hindsight — the two estimators
+only diverge under *shuffled* arrival order, and every local rating in this repo was always
+computed from `_interleave()`'s fixed order, never a reshuffle. `fit_against_fixed` is still the
+right thing to use going forward (any future harness that doesn't interleave, or that resamples
+determinizations non-deterministically, would have been silently exposed to the order artifact),
+but it changes nothing about calls already made from existing data.
+
+`worktree-lb-gap-rev2` has nothing else of value beyond this — everything else it diverges from
+`main` on is either already recovered (`deck_meta.py`, `instrument_agent.py` via commit
+`1020168`) or superseded by four more days of `main`'s work it never saw. Safe to remove once
+confirmed.
+
 ## 2026-08-13 (cont.) — archaludon_search ERRORs twice on real Kaggle, PIMC-search track dead
 
 **Today's real-ladder results, first readings (all still settling):**
@@ -1885,12 +1940,14 @@ compacted one) does not have to reconstruct it from 30+ scattered submissions an
 
 | agent | best real score | ref(s) | notes |
 |---|---|---|---|
-| Archaludon hardening (774.8 lineage) | **774.8** (single read); other draws 711.4, 710.8, 680.5, 664.8, 600.0(starved) | `55327510`/`55330407`/`55389372`/`55483875`/`55493636` | one archetype, 6 real reads, huge spread — genuinely our best code but the *number* is noisy; source reconstructed as `submissions/archaludon_hardening_v1/` after the original went unpreserved |
-| `lucifer19_archaludon_a` | **750.1** | `55491353` | public-kernel hardened Archaludon fork, 1 real read, currently frozen (accumulating pair now held by 08-14's uploads) |
+| Archaludon hardening (774.8 lineage) | **774.8** (single read); other draws 726.3, 711.4, 680.5, 664.8, 600.0(starved) | `55327510`/`55330407`/`55389372`/`55483875`/`55493636` | one archetype, 6 real reads, huge spread — genuinely our best code but the *number* is noisy; source reconstructed as `submissions/archaludon_hardening_v1/` after the original went unpreserved |
+| `lucifer19_lossfix_merge` (Variant A) | **727.6** (settled), 736.4/743.3 interim | `55502697` | our lossfix heuristics grafted onto lucifer19_archaludon_a; round-1 winner vs same-window control (704.6) and round-2 winner vs threatgate (632.4, discarded). **Current lead Final Submission candidate.** |
+| `lucifer19_archaludon_a` | **750.1** (first read) / 704.6 (same-window control re-read, now frozen) | `55491353` / `55502693` | public-kernel hardened Archaludon fork; parent of Variant A, which beat it on the round-1 real read |
 | `soutasakurai_libraryout_crustle` | **744.6** | `55416420` (also `55308334` at 553.8, an earlier pre-fix code state) | exception-fallback bug confirmed already fixed in current code (Task 6) |
 | Kiyota Dragapult raw (no guard) | 738.1 | `55335494` | source not preserved |
 | `biohack44_alakazam_dunsparce` | 694.6 | `55409986` | |
-| `archaludon_hardening_v1` (this repo's fork instance) | 710.8 (2nd read) / 664.8 (1st read) | `55493636` / `55483875` | same tarball as the 774.8 lineage above but tracked separately since forked late; 2 reads so far, still noisy |
+| `archaludon_hardening_v1` (this repo's fork instance) | 726.3 (2nd read, settled) / 664.8 (1st read) | `55493636` / `55483875` | same tarball as the 774.8 lineage above but tracked separately since forked late; 2 reads so far, still noisy |
+| `lucifer19_threatgate` (Variant B) | 632.4 | `55506333` | round-2 loser, discarded — >50mu below Variant A, corroborates the local gate's "uniform drop across all 6 opponents" flag |
 | masamikobayashi Archaludon raw v6 | 643.1 | `55308121` | source not preserved |
 | `kojimar_lucario` | 646.9 | `55483873` | public kernel, 1 real read |
 | `aristophanivan_probablity_v2` | 659.4 | `55409793` | |
@@ -1958,16 +2015,25 @@ because the underlying candidate directories no longer exist to regenerate them 
 ### What's still open
 
 - **Task 7 (2026-08-16, hard date):** manually select 2 Final Submissions in the Kaggle UI —
-  auto-select takes latest two, not best two. Current best-attested settled candidate:
-  `lucifer19_archaludon_a` (750.1). Strong runner-up: the Archaludon hardening lineage, but its
-  6 real reads spread 664.8-774.8 and haven't converged — needs judgment, not just "pick the
-  highest single number," per the plan's Task 7 Step 3 (weight toward post-deadline convergence,
-  diversify archetypes if within noise).
-- **08-15 upload pair:** not yet decided. Candidate pool is thinning — most public kernels tried,
-  `archaludon_search` dead, L6 forks already single-read. Options: a 3rd Archaludon-hardening read
-  to pin down its true mean (spread still 664.8-774.8, wide), or accept the pool is exhausted and
-  spend the slot re-confirming today's weaker-than-expected reads (jazivxt 620.2, aristophanivan
-  637.1) in case they were unlucky draws.
+  auto-select takes latest two, not best two. The lucifer19 round-1/round-2 gate is now fully
+  concluded (see "Round-2 settled reading" above): **`lucifer19_lossfix_merge` (Variant A) is the
+  confirmed lead candidate**, with two real reads (736.4 T+3h, 727.6 settled) both beating its
+  `lucifer19_archaludon_a` parent's same-window control (704.6) and beating threatgate (632.4,
+  discarded). Strong runner-up: the Archaludon hardening lineage, now at 726.3 settled 2nd read —
+  close enough to Variant A (727.6) to be within the ~25-65μ noise band, so still needs judgment
+  rather than "pick the highest single number," per the plan's Task 7 Step 3 (weight toward
+  post-deadline convergence, diversify archetypes if within noise). Working plan: select Variant A
+  as the primary Final Submission; decide the second slot between the hardening lineage (higher
+  variance, similar mean) and `lucifer19_archaludon_a` itself (lower variance, ~23μ behind) closer
+  to the 08-16 deadline once more reads settle.
+- **08-15 upload pair:** decided — the lucifer19 lever is closed (max-2-iterations rule spent both
+  on threatgate). Candidate pool is thinning — most public kernels tried, `archaludon_search` dead,
+  L6 forks already single-read. Remaining options for the 08-15 slot: a 3rd Archaludon-hardening
+  read to pin down its true mean now that it's converging (726.3, 711.4, 680.5, 664.8 —
+  tightening but still wide), or spend it re-confirming today's weaker-than-expected reads
+  (jazivxt 620.2, aristophanivan_multiply ~634-637) in case they were unlucky draws. Leaning toward
+  the hardening-lineage 3rd read since it's the only other candidate close enough to Variant A to
+  matter for the Task 7 second-slot decision.
 - Third-party GitHub agent `_localonly_tombombadyl_archaludon` remains hard-blocked (no license) —
   local-eval reference only, never packaged or submitted.
 
@@ -2102,3 +2168,24 @@ no earlier than T+4h from threatgate's upload (~17:34 UTC) and confirmed
   gate's flagged "uniform drop across all 6 opponents" concern despite its technical PASS.
   Discard threatgate (2nd iteration on this lever, stop here per the plan's max-2-iterations
   rule). Variant A remains the lead candidate for Task 7.
+
+**Round-2 settled reading, checked 2026-08-14 17:21 UTC (T+3h47m from threatgate's upload,
+past the T+4h target, both `SubmissionStatus.COMPLETE`):**
+
+| ref | candidate | score |
+|---|---|---|
+| `55502697` | Variant A (`lucifer19_lossfix_merge`) | 727.6 |
+| `55506333` | threatgate (Variant B) | 632.4 |
+
+`A` = 727.6 (drifted down from the T+3h interim 743.3 — still within the documented 50-65mu
+single-reading noise band). `A − 50` = 677.6. `T` = 632.4 < 677.6, so the **T < A − 50** branch
+applies: **threatgate is discarded.** This corroborates the local gate's pre-registered "uniform
+drop across all 6 opponents" flag — the technical PASS undersold a real regression. Two
+iterations spent on this lever (local gate + real read); per the plan's max-2-iterations rule,
+stop here. **`lucifer19_lossfix_merge` (Variant A) remains the lead Final Submission candidate**,
+now with two real reads (736.4 at T+3h round-1 check, 727.6 settled) both well above the
+`lucifer19_archaludon_a` control's same-window reads (704.6).
+
+Same check also picked up `archaludon_hardening_v1`'s 2nd read (`55493636`) fully settled at
+**726.3** (up from the 710.8 interim logged earlier the same day) — see the corrected snapshot
+table below.

@@ -155,3 +155,83 @@ def rate_against_fixed(candidate: Rating, results: list[tuple[Rating, bool]],
         else:
             _, rating = rate_1vs1(opponent, rating, beta=beta, tau=tau)
     return rating
+
+
+def _aggregate(results):
+    """Collapse [(opponent_rating, won), ...] to {(mu, sigma): [games, wins]}.
+
+    Aggregation is the whole point: the likelihood below depends on the results only through
+    these counts, which is what makes the estimate independent of the order the games arrived in.
+    """
+    counts = {}
+    for opponent, won in results:
+        key = (opponent.mu, opponent.sigma)
+        slot = counts.setdefault(key, [0, 0])
+        slot[0] += 1
+        slot[1] += bool(won)
+    return counts
+
+
+def fit_against_fixed(results, beta: float = DEFAULT_BETA, prior: Rating = None,
+                      tol: float = 1e-9) -> Rating:
+    """Rate a candidate against frozen opponents by fitting the whole result set at once.
+
+    Prefer this to `rate_against_fixed` for offline evaluation. Both answer the same question,
+    but the sequential filter answers it badly here, and measurably so: its sigma shrinks
+    monotonically from 200 with every game and never recovers, so by a few hundred games each
+    further result moves mu by almost nothing and the estimate is effectively pinned by whichever
+    outcomes happened to arrive first. Holding one real candidate's win counts fixed at
+    (1664, 1313, 2610, 2912, 3699, 3942) out of 4000 each and reshuffling only the arrival order
+    moved the sequential mu across 635.8-715.8 (sd 13.8) over 200 draws. That is the same size as
+    the differences the metric is asked to resolve, and it is pure artifact.
+
+    The model is the ordinary TrueSkill one. Opponent i has skill ~ N(mu_i, sigma_i^2), each side's
+    performance is its skill plus N(0, beta^2), and the candidate wins when its performance is
+    higher. For a candidate of skill s that gives
+
+        P(candidate beats opponent i) = Phi((s - mu_i) / c_i),  c_i = sqrt(2 beta^2 + sigma_i^2)
+
+    so the log-likelihood of k_i wins in n_i games is the usual probit sum. It is strictly
+    log-concave, so the posterior mode under a Gaussian prior is unique and a bisection on the
+    derivative finds it exactly. The prior (default: the same N(mu0, sigma0^2) the sequential
+    filter starts from) also keeps the estimate finite when a candidate wins or loses every game.
+
+    Returns a Rating whose sigma is the Laplace posterior standard deviation, i.e. the curvature
+    of the log-posterior at the mode -- a real uncertainty on the fitted skill, unlike the
+    sequential filter's sigma, which just records how many games have been played.
+    """
+    prior = prior if prior is not None else Rating()
+    counts = _aggregate(results)
+    if not counts:
+        return Rating(prior.mu, prior.sigma)
+
+    terms = [((mu_i, math.sqrt(2.0 * beta ** 2 + sigma_i ** 2)), n, k)
+             for (mu_i, sigma_i), (n, k) in counts.items()]
+
+    def dlogpost(s: float) -> float:
+        total = -(s - prior.mu) / (prior.sigma ** 2)
+        for (mu_i, c_i), n, k in terms:
+            t = (s - mu_i) / c_i
+            # v(t) = phi(t)/Phi(t) is the win-side score; the loss side is the same function
+            # reflected, which is exactly _v_and_w(-t). Reusing it keeps the far tails accurate.
+            total += (k * _v_and_w(t)[0] - (n - k) * _v_and_w(-t)[0]) / c_i
+        return total
+
+    lo, hi = prior.mu - 20.0 * prior.sigma, prior.mu + 20.0 * prior.sigma
+    if dlogpost(lo) < 0.0 or dlogpost(hi) > 0.0:  # unreachable for a proper prior; guard anyway
+        return Rating(prior.mu, prior.sigma)
+    while hi - lo > tol:
+        mid = 0.5 * (lo + hi)
+        if dlogpost(mid) > 0.0:
+            lo = mid
+        else:
+            hi = mid
+    s_hat = 0.5 * (lo + hi)
+
+    # Laplace sigma from the observed information, -d2/ds2 log posterior. w(t) = v(t)*(v(t)+t) is
+    # exactly that second-derivative multiplier, which is why _v_and_w returns both.
+    info = 1.0 / (prior.sigma ** 2)
+    for (mu_i, c_i), n, k in terms:
+        t = (s_hat - mu_i) / c_i
+        info += (k * _v_and_w(t)[1] + (n - k) * _v_and_w(-t)[1]) / (c_i ** 2)
+    return Rating(s_hat, math.sqrt(1.0 / info))

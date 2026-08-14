@@ -172,6 +172,14 @@ Things that will otherwise be re-derived the hard way:
   states. Instrument the branch and count the share of *battles* in which it fires at least once.
 - **Differences under ~25 μ are noise.** Two independent 24,000-game runs of the same candidate
   moved ~12 μ against a nominal σ of ~20.
+- **`rate_candidate` fits with `fit_against_fixed` (`src/trueskill_lite.py`), not the sequential
+  `rate_against_fixed` filter.** The sequential filter's sigma collapses monotonically and never
+  recovers, so its mu ends up decided by whichever results happen to arrive first —
+  `fit_against_fixed` fits the whole result set at once (closed-form MLE, provably
+  order-invariant) instead. `panel_version` hashes `candidate_estimator` so ratings from the two
+  methods can never silently compare. See `notebooks/kaggle-research/10-day-plan.md`'s
+  2026-08-14 "order-invariant estimator" section for the re-verification that this changed no
+  existing candidate's ranking.
 - **No seed control exists** — `libcg.so` self-seeds from `std::random_device` and exports no
   seeding entry point, so Common Random Numbers is impossible. Sample size is the only lever.
 - **Workers must be processes, not threads** — the engine is a ctypes singleton with a
