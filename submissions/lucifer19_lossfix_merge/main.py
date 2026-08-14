@@ -197,7 +197,7 @@ def opp_bench_pokemon(obs):
 
 def all_my_pokemon(obs):
     ps = my_state(obs)
-    return [p for p in (ps.active + ps.bench) if p]
+    return [p for p in ((ps.active or []) + (ps.bench or [])) if p]
 
 
 def hand_ids(obs):
@@ -424,7 +424,7 @@ def _estimate_alakazam(obs):
 
 def detect_matchup(obs):
     opp = opp_state(obs)
-    ids = {p.id for p in (opp.active + opp.bench) if p}
+    ids = {p.id for p in ((opp.active or []) + (opp.bench or [])) if p}
     if ids & CRUSTLE_LINE:
         return "crustle"
     if ids & HOP_LINE:
@@ -508,7 +508,7 @@ def apply_overrides(obs, opt, score, reason):
     if opt.type == OptionType.ATTACH:
         target = option_target(obs, opt)
         tid = target.id if target else None
-        if getattr(opt, 'inPlayArea', None) == AreaType.BENCH and tid == DURALUDON:
+        if getattr(opt, 'inPlayArea', None) == AreaType.BENCH and tid == DURALUDON and cid == METAL_ENERGY:
             return score + 10000, "Crustle: bench Duraludon energy priority"
         if getattr(opt, 'inPlayArea', None) == AreaType.ACTIVE:
             active = active_pokemon(obs)
@@ -596,6 +596,30 @@ def should_skip_ice_cream(obs, active):
 ITEMS = {POKE_PAD, ULTRA_BALL, POKEGEAR, NIGHT_STRETCHER, JUMBO_ICE_CREAM, HERO_CAPE}
 
 
+def _boss_has_lethal(obs):
+    """True iff Boss's Orders would score 20000/"LETHAL Boss" this turn -- mirrors the
+    lethal-only branches inside the BOSS scorer below, so callers can gate on "Boss is
+    actually worth playing" instead of just "Boss is in hand with an attacker ready"."""
+    attacks = planned_archaludon_attacks(obs)
+    if not attacks:
+        return False
+    opp_act = opp_active_pokemon(obs)
+    remaining = len(my_state(obs).prize)
+    if opp_act and any(effective_damage(atk["damage"], opp_act) >= opp_act.hp for atk in attacks):
+        if prize_value(opp_act) >= remaining:
+            return False
+        for target in opp_bench_pokemon(obs):
+            for atk in attacks:
+                if effective_damage(atk["damage"], target) >= target.hp and prize_value(target) >= remaining:
+                    return True
+        return False
+    for target in opp_bench_pokemon(obs):
+        for atk in attacks:
+            if effective_damage(atk["damage"], target) >= target.hp and prize_value(target) >= remaining:
+                return True
+    return False
+
+
 def score_play(obs, opt):
     card = option_card(obs, opt)
     cid = card.id if card else None
@@ -655,8 +679,10 @@ def score_play(obs, opt):
     if cid == LILLIE:
         if obs.current.supporterPlayed:
             return -1000, "Supporter already used"
-        if BOSS in ids and planned_archaludon_attacks(obs):
+        if BOSS in ids and planned_archaludon_attacks(obs) and _boss_has_lethal(obs):
             return -500, "save Lillie: Boss in hand with attacker ready"
+        if any(c and c.id == METAL_ENERGY for c in (my_state(obs).hand or []) if c):
+            return 1500, "save Lillie: attach loose Metal Energy first"
         return 5000, "play Lillie"
 
     if cid == BOSS:
@@ -807,7 +833,8 @@ def score_attach(obs, opt):
     if cid == HERO_CAPE:
         if tid == ARCHALUDON_EX and target and not has_tool(target):
             return 11000, "Hero's Cape on Archaludon ex"
-        if tid == DURALUDON and target and not has_tool(target) and energy_count(target) >= 1:
+        if (tid == DURALUDON and target and not has_tool(target) and energy_count(target) >= 1
+                and getattr(opt, 'inPlayArea', None) == AreaType.ACTIVE):
             return 8000, "Hero's Cape on Duraludon"
         return -1000, "save Hero's Cape"
 
@@ -1098,5 +1125,7 @@ def agent(obs_dict):
         return choose_options(obs)
     except Exception:
         n = len(obs.select.option)
+        min_count = max(0, int(getattr(obs.select, "minCount", 0) or 0))
         max_count = max(0, min(int(getattr(obs.select, "maxCount", 1) or 1), n))
-        return list(range(max_count))
+        k = min(max(min_count, max_count), n)
+        return list(range(k))
