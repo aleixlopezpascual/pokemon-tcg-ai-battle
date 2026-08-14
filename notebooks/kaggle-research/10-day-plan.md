@@ -2049,3 +2049,16 @@ Uploaded control first, variant last (important-arm-last rule):
   variant, to pin both lineages down for Final selection.
 - A submission sitting at mu0 = 600.0 with ~24s runtime is starved, not measured (`55371582`
   precedent) and must be discarded as a reading, not interpreted.
+
+**Interim reading, 2026-08-14 12:46 UTC (T+3h, not yet T+4h -- scores can still move):**
+
+| ref | candidate | status | score |
+|---|---|---|---|
+| `55502697` | Variant A (`lucifer19_lossfix_merge`) | COMPLETE | 743.3 |
+| `55502693` | control (`lucifer19_archaludon_a`) | COMPLETE | 704.6 |
+
+V (743.3) >= C (704.6) -- currently satisfies the V>=C branch (+38.7mu gap). Not yet
+1-hour-settled per the T+4h rule; scheduled recheck ~13:50 UTC before treating this as final.
+Note the control itself read 45.5mu below its own prior 750.1 read (`55491353`) -- inside the
+documented 50-65mu single-reading noise floor, so this is drift, not evidence the control
+regressed.
