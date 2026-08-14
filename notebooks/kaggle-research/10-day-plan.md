@@ -2067,4 +2067,38 @@ regressed.
 reading rather than wait out the scheduled T+4h recheck, consistent with the standing
 [[act-on-first-ladder-reading]] preference. V>=C branch applies: **Variant A
 (`lucifer19_lossfix_merge`) is the round-1 winner and live Final Submission candidate.**
-Round 2 (08-15) ships `lucifer19_threatgate` against it, per the pre-registered rule.
+
+### Round 2 upload — 2026-08-14 13:34 UTC (moved up from planned 08-15; still same UTC day)
+
+1 upload slot remained today after round 1 (control + Variant A used 2 of the 5). Rather than
+wait for tomorrow's UTC boundary as originally planned, spent it now: uploading
+`lucifer19_threatgate` makes {Variant A, threatgate} the new 2-most-recent accumulating pair,
+freezing the control -- which is fine, the control already lost round 1 and its purpose (a
+same-window drift reference) is served. This gets the Variant-A-vs-threatgate comparison a full
+day head start versus waiting for 08-15, without spending an extra quota slot beyond what round
+1 already used.
+
+| ref | candidate | uploaded (UTC) | status at upload |
+|---|---|---|---|
+| `55506333` | `lucifer19_threatgate` (Variant B) | 2026-08-14 13:33:58 | PENDING |
+
+Secrets scan already covered this tarball in the round-1 pre-upload scan (PASS, no separate
+concern flagged for when it would be uploaded later).
+
+Today's quota is now exhausted (0 remaining). `lucifer19_archaludon_a` (control, `55502693`) is
+now frozen at its T+3h reading of 704.6 and will not accumulate further episodes.
+
+**Round-2 decision rule, pre-registered 2026-08-14 13:34 UTC, before reading any score:** let
+`A` = Variant A's fully-settled score (`55502697`, currently 743.3 at T+3h, still capable of
+moving until frozen or re-checked) and `T` = threatgate's settled score (`55506333`), both read
+no earlier than T+4h from threatgate's upload (~17:34 UTC) and confirmed
+`SubmissionStatus.COMPLETE`.
+- **T >= A:** threatgate becomes the stronger candidate; prefer it plus Variant A as the two
+  Finals (diversifying only if a third non-Archaludon reading is competitive).
+- **A − 50 <= T < A:** inconclusive, inside the noise floor. Keep Variant A as the lead
+  candidate; threatgate is a second, less-favored Archaludon option for Task 7's diversity
+  check, not a replacement.
+- **T < A − 50:** threatgate regressed beyond the noise floor. This would corroborate the local
+  gate's flagged "uniform drop across all 6 opponents" concern despite its technical PASS.
+  Discard threatgate (2nd iteration on this lever, stop here per the plan's max-2-iterations
+  rule). Variant A remains the lead candidate for Task 7.
