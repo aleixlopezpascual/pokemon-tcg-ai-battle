@@ -1970,3 +1970,28 @@ because the underlying candidate directories no longer exist to regenerate them 
   637.1) in case they were unlucky draws.
 - Third-party GitHub agent `_localonly_tombombadyl_archaludon` remains hard-blocked (no license) —
   local-eval reference only, never packaged or submitted.
+
+### Lucifer19 variant gate — pre-registered 2026-08-14, before any rating run
+
+Two new candidates built this session: `lucifer19_lossfix_merge` (Variant A — grafts
+`archaludon_lossfix`'s 4 heuristic fixes onto lucifer19, restores 3 base guards lucifer19
+dropped) and `lucifer19_threatgate` (Variant B — A plus wiring the dead `opp_max_damage`
+into `score_retreat`/`attach_target_score`). Both aim to beat `lucifer19_archaludon_a`'s
+750.1 settled real-ladder read.
+
+Gate rule for `lucifer19_lossfix_merge` and `lucifer19_threatgate`:
+- **VETO (do not upload)** if a variant's `local_mu` is more than **25 mu below** the
+  `lucifer19_archaludon_a` baseline measured on the identical field, or if its `err` column
+  is non-zero on any opponent where the baseline's is zero.
+- **PASS (eligible to upload)** otherwise. A PASS is *not* evidence the variant is better:
+  this instrument attenuated a known 50.1 mu ladder gap to +4.2 and inverted a known 63.4 mu
+  gap to −12.4 (`evaluation-methodology.md:355-360`). Ordering between two PASSing variants
+  must not be decided on local mu.
+- Rationale for 25: it is the documented operational band. It is a tau=2-era figure and no
+  tau=0 replacement has been derived, so it is used here as a deliberately conservative veto
+  threshold, not as a significance test.
+- All three ratings (baseline + both variants) run on the identical field: 6 opponents,
+  `masamikobayashi_archaludon_cinderace` excluded (it's the shared parent of all three
+  agents — rating a fork against its own near-duplicate parent produced the spurious
+  `archaludon_lossfix` −13.8mu verdict Task 5 corrected), 24,000 games each, same
+  `panel_version`. The PASS/VETO call is committed before the numbers are read.
