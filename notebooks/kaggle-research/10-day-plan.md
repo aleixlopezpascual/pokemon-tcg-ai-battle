@@ -1870,3 +1870,103 @@ frozen, so nothing informative was lost. Next: watch these two PENDING → COMPL
 08-15 pair (best remaining unmeasured candidate + 2nd-best remaining, per the plan's schedule —
 candidate pool now nearly exhausted: `kojimar_lucario` and the L6 deck forks already have single
 real reads, `archaludon_search` is confirmed dead).
+
+Both landed COMPLETE within the hour: `aristophanivan_multiply` **637.1** real (close to its local
+mu 653.4 — good calibration this time), `archaludon_hardening_v1` 2nd read **710.8** (still
+refining; between its own 1st read 664.8 and the historic sibling family's 774.8, i.e. within the
+same wide spread, not yet resolving whether 664.8 or 774.8-ish is the truer mean).
+
+## 2026-08-14 — full status snapshot (everything so far)
+
+**Deadline 2026-08-16 23:59 UTC.** Two days left. This snapshot exists so a future session (or a
+compacted one) does not have to reconstruct it from 30+ scattered submissions and 28 ratings files.
+
+### Real-ladder readings (Kaggle API, all settled/COMPLETE unless noted), best-known first
+
+| agent | best real score | ref(s) | notes |
+|---|---|---|---|
+| Archaludon hardening (774.8 lineage) | **774.8** (single read); other draws 711.4, 710.8, 680.5, 664.8, 600.0(starved) | `55327510`/`55330407`/`55389372`/`55483875`/`55493636` | one archetype, 6 real reads, huge spread — genuinely our best code but the *number* is noisy; source reconstructed as `submissions/archaludon_hardening_v1/` after the original went unpreserved |
+| `lucifer19_archaludon_a` | **750.1** | `55491353` | public-kernel hardened Archaludon fork, 1 real read, currently frozen (accumulating pair now held by 08-14's uploads) |
+| `soutasakurai_libraryout_crustle` | **744.6** | `55416420` (also `55308334` at 553.8, an earlier pre-fix code state) | exception-fallback bug confirmed already fixed in current code (Task 6) |
+| Kiyota Dragapult raw (no guard) | 738.1 | `55335494` | source not preserved |
+| `biohack44_alakazam_dunsparce` | 694.6 | `55409986` | |
+| `archaludon_hardening_v1` (this repo's fork instance) | 710.8 (2nd read) / 664.8 (1st read) | `55493636` / `55483875` | same tarball as the 774.8 lineage above but tracked separately since forked late; 2 reads so far, still noisy |
+| masamikobayashi Archaludon raw v6 | 643.1 | `55308121` | source not preserved |
+| `kojimar_lucario` | 646.9 | `55483873` | public kernel, 1 real read |
+| `aristophanivan_probablity_v2` | 659.4 | `55409793` | |
+| `aristophanivan_multiply` | 637.1 | `55493630` | new 08-14 upload, search-based (see extraction note above) |
+| `archaludon_lossfix` | 603.8 | `55453383` | local re-gate (Task 5) reversed its old −13.8mu "regression" verdict to +1.8mu — real read predates that correction |
+| Dragapult ex (Fezandipiti fix, ArmB1/B2/A) | 588.6 / 646.2 / 688.0 | `55371590`/`55371585`/`55336268` | partial-factorial fix experiment, superseded |
+| `kiyota_dragapult_ex_l6deck` | 582.7 | `55459429` | L6 deck-mining fork, real *improved* vs parent-archetype's low real reads despite local regression |
+| `kiyota_mega_lucario_ex_l6deck` | 516.4 | `55459427` | L6 fork, real flipped sign vs local wash (+66 to +76mu) |
+| `jazivxt_alakazam` | 620.2 | `55491517` | 2-ply minimax, disappointing vs its local mu 741.4 (highest local read in the roster) — the "one dramatic local/real divergence" case this batch |
+| Official Kiyota Mega Lucario sample | 490.8 | `55307583` | |
+| `il_agent_v2` (pure-Python export) | 538.7 | `55325282` | IL track, frozen/dead |
+| ArmC noise-floor control | 600.0 | `55371582` | **starved**, not a real reading — flagged precedent for "don't treat a 3rd-upload freeze as data" |
+
+**Ladder noise floor:** ~50-65 mu for a single reading (established via the ArmC repeat-upload
+test and the Archaludon hardening lineage's own spread).
+
+### Local frozen-panel readings (tau=0 estimator, `local_sigma`≈1.1-1.3 = trustworthy; ≈19-21 =
+stale tau=2, see below), highest mu first
+
+| candidate | local mu | pooled WR | note |
+|---|---|---|---|
+| `jazivxt_alakazam` | 741.4 | 78.9% | highest local read in the roster; real came in far lower (620.2) |
+| `lucifer19_archaludon_a` | 681.3 | 66.4% | |
+| `biohack44_alakazam_dunsparce` | 684.7 | 70.0% | |
+| `_localonly_tombombadyl_archaludon` | 661.3 | 62.0% | **hard-blocked, GitHub NO LICENSE — local eval only, never ships** |
+| `archaludon_lossfix` | 678.1 | 68.1% | re-gated matched-field (Task 5), true effect +1.8mu vs parent |
+| `archaludon_search` | 674.4 | 64.9% | CRN-fixed (Task 3); confirmed dead on real Kaggle (2× ERROR) regardless of local result |
+| `masamikobayashi_archaludon_cinderace` | 676.3 | 67.7% | parent of `archaludon_lossfix` and the hardening lineage |
+| `soutasakurai_libraryout_crustle` | 673.8 | 69.3% | |
+| `aristophanivan_multiply` | 653.4 | 60.0% | new 08-14 candidate |
+| `aristophanivan_probablity_v2` | 651.6 | 61.2% | |
+| `_localonly_makthanithin_lucario` | 649.2 | 59.0% | shipped as `kojimar_lucario` (byte-identical to kojimar's clean copy, not makthanithin's broken published bytes) |
+| `kiyota_dragapult_ex` | 614.4 | 51.0% | |
+| `kiyota_mega_lucario_ex` | 586.3 | 43.4% | |
+| `kiyota_mega_lucario_ex_l6deck` | 573.5 | 41.1% | wash vs parent locally, real *improved* |
+| `il_agent_v2` | 567.1 | 40.0% | IL track, frozen/dead |
+| `kiyota_dragapult_ex_l6deck` | 500.9 | 29.1% | clear regression locally, real also regressed (same direction) |
+| `il_agent_v3` | 482.9 | 23.0% | IL track, frozen/dead |
+| `_localonly_nursrijan_lucario` | 493.3 | 25.1% | |
+| `il_agent_v1` | 470.6 | 20.9% | IL track, frozen/dead |
+
+Rows with `local_sigma`≈19-21 (`archaludon_intent` ×5, old `archaludon_search`/`kiyota_*` pre-fix
+copies) are tau=2-contaminated pre-Task-1-fix data — not comparable to the table above, kept only
+because the underlying candidate directories no longer exist to regenerate them (Task 5 Step 1/4).
+
+### What's fixed / closed this session (Tasks 1, 3, 4, 5, 6 — see earlier entries for full detail)
+
+- **Task 1** — local estimator was defaulting to `tau=2.0` (an EWMA with ~300-game memory dressed
+  up as a 28,000-game read); fixed to `tau=0.0` to match `fit_panel`, `panel_version` now hashes
+  `tau`, `rate` given the same opponent-blocking parity `compare` already had.
+- **Task 3** — `archaludon_search`'s PIMC layer fixed (CRN across candidates, fair per-candidate
+  budget, no base-first tie bias); override rate went 0.8% → 21.3%, local veto passed (674.4 vs
+  673.6) — but it ERRORed twice on real Kaggle with no available error text. **Dead for this
+  deadline**; jazivxt took its exploration slot instead.
+- **Task 4** — extracted `lucifer19_archaludon_a`, `jazivxt_alakazam`, and (this session)
+  `aristophanivan_multiply` from public Kaggle kernels; all three shipped and read.
+- **Task 5** — regenerated ratings under the tau=0 fix; the `archaludon_lossfix` "−13.8mu
+  regression" that closed the mechanism-search track was an artifact of the missing opponent-
+  blocking parity — true effect matched-field is **+1.8mu**. Best-score record corrected from
+  744.6 to 774.8 across `mechanism-search-retro.md`. Five residual instrument defects flagged
+  (not fixed) in `evaluation-methodology.md`.
+- **Task 6** — the Crustle exception-fallback bug the plan described was already fixed in the
+  current codebase; verified by direct testing rather than assumed, no code change needed.
+
+### What's still open
+
+- **Task 7 (2026-08-16, hard date):** manually select 2 Final Submissions in the Kaggle UI —
+  auto-select takes latest two, not best two. Current best-attested settled candidate:
+  `lucifer19_archaludon_a` (750.1). Strong runner-up: the Archaludon hardening lineage, but its
+  6 real reads spread 664.8-774.8 and haven't converged — needs judgment, not just "pick the
+  highest single number," per the plan's Task 7 Step 3 (weight toward post-deadline convergence,
+  diversify archetypes if within noise).
+- **08-15 upload pair:** not yet decided. Candidate pool is thinning — most public kernels tried,
+  `archaludon_search` dead, L6 forks already single-read. Options: a 3rd Archaludon-hardening read
+  to pin down its true mean (spread still 664.8-774.8, wide), or accept the pool is exhausted and
+  spend the slot re-confirming today's weaker-than-expected reads (jazivxt 620.2, aristophanivan
+  637.1) in case they were unlucky draws.
+- Third-party GitHub agent `_localonly_tombombadyl_archaludon` remains hard-blocked (no license) —
+  local-eval reference only, never packaged or submitted.
