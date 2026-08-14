@@ -1837,3 +1837,36 @@ gain — the new aristophanivan candidate is prep for the **08-14** pair, not to
 reading for `archaludon_hardening_v1` (single read 664.8, historical sibling bytes span
 680.5-774.8 — wide enough that a second reading matters for Task 7's eventual pick between it and
 whatever else is settled by 08-16).
+
+## 2026-08-14 — today's pair uploaded at the UTC boundary
+
+Local read on `aristophanivan_multiply` landed: **mu 653.4** (sigma 1.2), pooled WR 60.0% over
+28000 games. Beats sample/il_agent_v2b/kiyota_mega_lucario_ex, near-coinflip vs its own likely
+sibling `aristophanivan_probablity_v2` (52.3%), weak vs `masamikobayashi_archaludon_cinderace`
+(36.4%) and `soutasakurai_libraryout_crustle` (41.4%). Not a local kill (per Task 4's rule, local
+never kills — this is informational only) and it's architecturally distinct (real search, not
+heuristic, despite its own markdown's claim), so it stayed in today's upload pool rather than
+being dropped.
+
+Confirmed via `date -u` that the 08-14 UTC boundary had passed (00:05 UTC) before uploading, so
+today's pair lands in a fresh quota day rather than starving yesterday's just-settled
+`jazivxt_alakazam`/`lucifer19_archaludon_a` pair early. Ran `secrets-scanner` first — clean; it
+also caught and flagged a stray untracked `deck.csv` at the repo root (leftover scratch from the
+extraction, unignored, duplicate of `submissions/aristophanivan_multiply/deck.csv`) — deleted
+after diff-confirming it was byte-identical to the tracked copy.
+
+**Uploaded, first arm:**
+- `55493630` `aristophanivan_multiply`, 2026-08-14 00:07:08 UTC — SubmissionStatus.PENDING.
+
+**Uploaded, second arm (more important, per the plan's "important arm last" rule):**
+- `55493636` `archaludon_hardening_v1` 2nd read, 2026-08-14 00:07:17 UTC — SubmissionStatus.PENDING.
+  First read (`55483875`, 08-13) was 664.8, well below the sibling family's historical spread
+  (680.5-774.8); re-uploaded the unmodified tarball for a second settled reading ahead of Task 7.
+
+3 submissions remaining in today's quota (unused, per the 2-uploads-per-day discipline). Both now
+occupy the two accumulating slots, freezing yesterday's `jazivxt_alakazam` (620.2, settled) and
+`lucifer19_archaludon_a` (750.1, settled) — both already had a real COMPLETE reading before being
+frozen, so nothing informative was lost. Next: watch these two PENDING → COMPLETE, then decide the
+08-15 pair (best remaining unmeasured candidate + 2nd-best remaining, per the plan's schedule —
+candidate pool now nearly exhausted: `kojimar_lucario` and the L6 deck forks already have single
+real reads, `archaludon_search` is confirmed dead).
