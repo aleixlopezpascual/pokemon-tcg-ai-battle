@@ -1995,3 +1995,26 @@ Gate rule for `lucifer19_lossfix_merge` and `lucifer19_threatgate`:
   agents — rating a fork against its own near-duplicate parent produced the spurious
   `archaludon_lossfix` −13.8mu verdict Task 5 corrected), 24,000 games each, same
   `panel_version`. The PASS/VETO call is committed before the numbers are read.
+
+### Lucifer19 variant gate — results, 2026-08-14
+
+Matched field (`panel_version fa733a4e989a`, 6 opponents, `masamikobayashi_archaludon_cinderace`
+excluded, 24,000 games/candidate, all `err` columns 0):
+
+| candidate | local mu | sigma | pooled WR | delta vs baseline |
+|---|---|---|---|---|
+| `lucifer19_archaludon_a` (baseline, re-measured) | 680.9 | 1.3 | 68.7% | — |
+| `lucifer19_lossfix_merge` (Variant A) | 683.6 | 1.3 | 69.2% | **+2.7 mu** |
+| `lucifer19_threatgate` (Variant B) | 664.1 | 1.3 | 65.1% | **−16.8 mu** |
+
+**Both PASS** the pre-registered ≥−25mu veto (neither variant's `err` is non-zero where
+baseline's is zero either). Per the rule, this is not evidence of ranking — the instrument is
+documented to attenuate/invert exactly this size of effect.
+
+One thing worth flagging past the pre-registered rule itself: Variant B's win% dropped
+against **every one of the 6 opponents**, not a mixed bag — 45.9%→40.8% vs biohack44 alone.
+A patternless instrument would be expected to scatter across some opponents; a uniform drop
+across all 6 looks more like a real (if noisy-instrument-attenuated) regression than sampling
+noise, even though it's inside the 25mu veto band. This does not override the pre-registered
+PASS — no post-hoc vetoing — but it lowers confidence Variant B is actually an improvement
+worth spending a round on, and is logged here for Task 5/6 upload-order judgment.
