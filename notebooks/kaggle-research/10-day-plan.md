@@ -2189,3 +2189,60 @@ now with two real reads (736.4 at T+3h round-1 check, 727.6 settled) both well a
 Same check also picked up `archaludon_hardening_v1`'s 2nd read (`55493636`) fully settled at
 **726.3** (up from the 710.8 interim logged earlier the same day) — see the corrected snapshot
 table below.
+
+## 2026-08-15 — both Task-7 finalists re-checked, still drifting; same-window pair uploaded
+
+A fresh pull (before any new upload) found the "settled" numbers above had kept moving 30+ hours
+post-upload: Variant A (`55502697`) had slid **743.3 → 727.6 → 710.8**, now *below* both
+`lucifer19_archaludon_a` (frozen control, 750.1) and `archaludon_hardening_v1`'s 2nd read (726.3)
+— undermining the 2026-08-14 conclusion that Variant A led hardening by a hair (727.6 vs 726.3).
+Threatgate (`55506333`) also kept moving (632.4 → 641.8 → 635.4), confirming the "2 most recent
+submissions keep accumulating episodes" mechanic was still live for both, not settled.
+
+Decision: rather than the originally-planned single hardening 3rd read, upload **both**
+`archaludon_hardening_v1` (3rd read) and a fresh `lucifer19_lossfix_merge` (Variant A) re-upload
+in the same window, so the two current Task-7 finalist candidates get one directly comparable,
+same-window reading before the 08-16 23:59 UTC deadline.
+
+**Submission blocked, then resolved:** the first attempt (`kaggle competitions submit`) failed
+repeatedly with a bare `400 Client Error: Bad Request`, no further detail from the CLI. Six
+plausible causes were ruled out (message length, message content, non-ASCII chars, competition
+closed, account not entered, even a trivial one-word message still failed). The actual cause,
+recovered by calling `kaggle.api.kaggle_api_extended.KaggleApi().competition_submit(...)` directly
+via the CLI's own venv (`~/.local/share/uv/tools/kaggle/bin/python` — this shell's default
+`python3` does not have the `kaggle` package installed) to read the real response body:
+
+> `"Submission not allowed: Your team has used its daily Submission allowance (5) today, please
+> try again tomorrow UTC (17 minutes from now)."`
+
+The day's quota was already exhausted (2026-08-14 UTC) — a prior CSV-based check had filtered by
+local date rather than UTC date and missed this. Not a tarball, code, or account-state issue.
+Waited for the UTC midnight reset, then submitted both, ~19s apart:
+
+| ref | candidate | uploaded | status |
+|---|---|---|---|
+| `55523797` | `archaludon_hardening_v1` (3rd read) | 2026-08-15 08:47:10 UTC | PENDING |
+| `55523811` | `lucifer19_lossfix_merge` Variant A (fresh re-read) | 2026-08-15 08:47:29 UTC | PENDING |
+
+Both tarballs are byte-identical re-uploads of already-preflighted, already-tested submissions
+(no code changes) — secrets/data guard PASS, `py_compile` clean, `__file__` guard confirmed,
+exec-without-`__file__` smoke test passed, tarball contents verified, for both.
+
+**Same-window decision rule, pre-registered 2026-08-15 08:48 UTC, before reading either score:**
+let `H` = hardening's settled score (`55523797`) and `V` = Variant A's settled score (`55523811`),
+both read no earlier than T+4h from Variant A's upload (~12:47 UTC) and confirmed
+`SubmissionStatus.COMPLETE`.
+- **`V >= H`:** Variant A remains the lead Final Submission candidate; hardening is the second
+  slot (diversity value: different lineage, similar mean).
+- **`H - 50 <= V < H`:** inconclusive, inside the noise floor — but note this same-window pair is
+  free of the 30+-hour drift confound the 2026-08-14 reading had, so treat this as the more
+  trustworthy comparison. Prefer whichever nominally scores higher for the primary slot, keep
+  both as the two Finals either way.
+- **`V < H - 50`:** hardening has overtaken Variant A beyond the noise floor. Swap: hardening
+  becomes the primary Final Submission candidate, Variant A becomes the second slot.
+
+In all three branches, `archaludon_hardening_v1` and `lucifer19_lossfix_merge` are the two Task-7
+Final Submission picks pending this reading — no other candidate is competitive enough to displace
+either slot. Manual selection in the Kaggle UI is still required by the 2026-08-16 23:59 UTC
+deadline; auto-select would pick these two anyway since they are now the latest two uploads, but
+select explicitly and don't rely on that.
