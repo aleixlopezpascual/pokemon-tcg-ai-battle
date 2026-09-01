@@ -1,0 +1,19 @@
+README.md
+  s_3ec2294dd2a7d1::t_05d61727b4f720 1,3,5,7,9,11-74,76,78-87,89-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3bd4958b67df650cc3342bdf6a0c6b5384c59a36",
+  "prompts": {},
+  "sessions": {
+    "s_3ec2294dd2a7d1": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "93452b2a-80ff-4871-bfcf-291b3f7d40c9",
+        "model": "gemini-3.5-flash"
+      },
+      "human_author": "Aleix López"
+    }
+  }
+}
