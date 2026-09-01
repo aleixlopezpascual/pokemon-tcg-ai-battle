@@ -2241,8 +2241,49 @@ both read no earlier than T+4h from Variant A's upload (~12:47 UTC) and confirme
 - **`V < H - 50`:** hardening has overtaken Variant A beyond the noise floor. Swap: hardening
   becomes the primary Final Submission candidate, Variant A becomes the second slot.
 
-In all three branches, `archaludon_hardening_v1` and `lucifer19_lossfix_merge` are the two Task-7
-Final Submission picks pending this reading — no other candidate is competitive enough to displace
-either slot. Manual selection in the Kaggle UI is still required by the 2026-08-16 23:59 UTC
-deadline; auto-select would pick these two anyway since they are now the latest two uploads, but
-select explicitly and don't rely on that.
+In all three branches, `archaludon_hardening_v1` and `lucifer19_lossfix_merge` were the two leading candidate picks up to the morning of August 15. However, a final-hour data analysis of the public leaderboard score-bands revealed a critical structural ceiling:
+- Archaludon was heavily capped, holding only a 1.4% share in the 800-899 bronze band and nearly zero presence above.
+- In contrast, Marnie Grimmsnarl held a massive **52.4% share** in the 800-899 bronze band, demonstrating a vastly higher performance ceiling.
+
+### The Final Hour Archetype Pivot — 2026-08-15
+
+Recognizing that our Archaludon agents were plateauing around ~720–775 μ (well below the bronze threshold), we executed a last-minute high-beta archetype pivot on the afternoon of August 15:
+1. **`grimmsnarl_v1` (ref `55530319`)**: A port of `tetsutani/grimmsnarl-ex-damage-transfer-control` with custom stdlib decision-tree scoring and rule guards, submitted at 15:01 UTC.
+2. **`alakazam_v2` (ref `55530501`)**: A secondary diversified pivot using an Alakazam weighted-scorer (ref `55530501`), submitted at 15:10 UTC.
+
+These two became our final "most-recent" submissions and received all the endgame episode allocations.
+
+### Final Standings & Leaderboard Retrospective (September 1, 2026)
+
+With the competition fully finished and all scores settled, the final landscape is documented below:
+
+- **Total participating teams**: 6,807
+- **Final Medal Cutoffs**:
+  - **Gold Threshold** (Top 0.2% / Rank 24): **1128.5 μ**
+  - **Silver Threshold** (Top 5% / Rank 340): **924.0 μ**
+  - **Bronze Threshold** (Top 10% / Rank 680): **853.7 μ**
+- **Our Final Standing**:
+  - **Rank**: 931 (Top **13.67%** / High-percentile finish)
+  - **Final Settled Score**: **824.7 μ** (achieved by `grimmsnarl_v1`)
+
+#### Score Dynamics & Late-Game Drift
+During the final morning of 2026-08-16, `grimmsnarl_v1` peaked on the live ladder at an interim reading of **942.9 μ** (over 58 episodes), which sat comfortably above the Silver cutoff. As the final hours progressed and the agent accumulated its full quota of evaluation games, it regressed to its true settled mean of **824.7 μ**. This confirmed our earlier findings that early TrueSkill readings on the Kaggle ladder suffer from a high noise floor and drift of ±50–65 μ, and high-volume games are required to find the true asymptotic mean. 
+
+Although we narrowly missed the Bronze threshold in the final drift, the archetype pivot was a resounding success—drastically outperforming our best Archaludon agents, which peaked in the mid-700s.
+
+### Local Post-Mortem Experiments (Grimmsnarl v2–v5)
+
+Following the submission freeze on `grimmsnarl_v1`, local offline tests were run to determine if any simple corrections could have pushed us into Silver (re-verified at n=1000 mirror / n=300 panel):
+1. **`grimmsnarl_v2`** (metal-profile damage-prediction fix): A real bug was identified in `_predict_damage` where the metal profile was classified but lacked damage scoring. However, addressing this resulted in a statistically insignificant **-1.0pp** aggregate delta, proving that metal KO risk was rarely the decisive game factor.
+2. **`grimmsnarl_v3`** (wiring in dead `_direct_selection` logic): Caused a severe and consistent **regression** across all matchups (e.g., -6.3pp vs Archaludon), confirming this logic was rightfully disabled during earlier development.
+3. **`grimmsnarl_v4`** (psychic-profile damage-prediction fix): Resulted in a neutral/wash of **+1.6pp**, within the noise floor.
+4. **`grimmsnarl_v5`** (wiring in dead wall-profile functions): Caused a clear **regression** (mirror -5.4pp, one opponent -4.3pp), likely due to profile misclassifications under memory hysteresis.
+
+Our decision to freeze submissions at `grimmsnarl_v1` and reject untested-on-ladder modifications was empirically correct.
+
+### Key Takeaways & Engineering Lessons
+
+1. **Ecosystem & Sandbox Minimality**: We established early on that the Kaggle simulation sandbox lacks standard data-science dependencies (`numpy`, `pandas`, `scikit-learn`). Exporting trained model structures to pure Python JSON matrices (via `pure_predictor.py`) was a crucial engineering success that saved the imitation learning track from continuous sandbox execution errors.
+2. **The `exec()` Environment Gotcha**: Guarding against the lack of `__file__` in the execution scope (using the Kaggle simulation path fallback) is a mandatory rule of thumb for Kaggle simulation competitions.
+3. **Calibration & Local Validation**: While local win-rates are valuable for identifying major regressions, they cannot resolve fine-grained (under 25 μ) improvements due to the high variance of the simulator. Multi-matchup, high-n (n ≥ 300) evaluations are required to overcome the noise floor.
+4. **Meta-Awareness Wins**: Code optimization is secondary to archetype positioning. No amount of hardening on Archaludon could overcome its design ceiling; the rapid pivot to Marnie Grimmsnarl was what ultimately gave us our competitive 820+ μ standing.
